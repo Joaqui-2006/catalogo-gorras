@@ -1,4 +1,4 @@
-﻿# CatÃ¡logo digital â€“ BARRIO CAPS
+﻿# CatÃ¡logo digital â€“ Monarch Street
 
 Sitio estÃ¡tico (HTML + CSS + Bootstrap 5 + JS) con panel de administrador (Decap CMS).
 

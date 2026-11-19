@@ -3,8 +3,8 @@
    el número de WhatsApp, la marca y las redes sociales.
    ============================================================ */
 const CONFIG = {
-  brandName: "BARRIO CAPS",
-  tagline: "Gorras con actitud de calle",
+  brandName: "MONARCH STREET",
+  tagline: "More than caps",
 
   // Número de WhatsApp con indicativo de país, SIN "+" ni espacios.
   // Colombia = 57. ¡NÚMERO DE PRUEBA! Reemplázalo por el real.
