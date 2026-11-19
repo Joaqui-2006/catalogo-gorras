@@ -1,0 +1,33 @@
+backend:
+  name: git-gateway
+  branch: main
+
+# Solo para pruebas locales con: npx.cmd decap-server
+local_backend: true
+
+media_folder: "assets/img"
+public_folder: "/assets/img"
+locale: "es"
+
+collections:
+  - name: catalogo
+    label: "Catálogo"
+    files:
+      - name: productos
+        label: "Gorras"
+        file: "content/products.json"
+        fields:
+          - label: "Gorras"
+            name: products
+            widget: list
+            label_singular: "gorra"
+            summary: "{{fields.name}} — {{fields.category}}"
+            fields:
+              - { label: "Foto", name: image, widget: image, choose_url: false }
+              - { label: "Nombre", name: name, widget: string }
+              - { label: "Precio (COP, sin puntos)", name: price, widget: number, value_type: int, min: 0 }
+              - label: "Categoría"
+                name: category
+                widget: select
+                options: ["Snapback", "Trucker", "Dad Hat", "Edición limitada"]
+              - { label: "Descripción", name: description, widget: text }

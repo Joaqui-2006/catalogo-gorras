@@ -1,0 +1,60 @@
+{
+  "products": [
+    {
+      "name": "Snapback Midnight",
+      "price": 85000,
+      "category": "Snapback",
+      "description": "Visera plana, bordado frontal en relieve y cierre ajustable. Negro total.",
+      "image": "/assets/img/gorra-1.jpg"
+    },
+    {
+      "name": "Snapback Arena",
+      "price": 85000,
+      "category": "Snapback",
+      "description": "Tono arena con logo tono sobre tono. Ajuste perfecto para cualquier cabeza.",
+      "image": "/assets/img/gorra-2.jpg"
+    },
+    {
+      "name": "Trucker Concreto",
+      "price": 75000,
+      "category": "Trucker",
+      "description": "Malla trasera transpirable y frente en gris concreto. Ideal para el día a día.",
+      "image": "/assets/img/gorra-3.jpg"
+    },
+    {
+      "name": "Trucker Neón Noche",
+      "price": 79000,
+      "category": "Trucker",
+      "description": "Frente negro con detalles reflectivos. Ligera y fresca.",
+      "image": "/assets/img/gorra-4.jpg"
+    },
+    {
+      "name": "Dad Hat Clásica",
+      "price": 69000,
+      "category": "Dad Hat",
+      "description": "Visera curva, algodón lavado y correa metálica. Estilo relajado.",
+      "image": "/assets/img/gorra-5.jpg"
+    },
+    {
+      "name": "Dad Hat Oliva",
+      "price": 69000,
+      "category": "Dad Hat",
+      "description": "Verde oliva desgastado con bordado minimalista.",
+      "image": "/assets/img/gorra-6.jpg"
+    },
+    {
+      "name": "Edición Limitada Skyline",
+      "price": 110000,
+      "category": "Edición limitada",
+      "description": "Serie numerada con bordado de skyline urbano. Pocas unidades.",
+      "image": "/assets/img/gorra-7.jpg"
+    },
+    {
+      "name": "Edición Limitada Vandal",
+      "price": 120000,
+      "category": "Edición limitada",
+      "description": "Parche tejido y forro interior estampado. Pieza de colección.",
+      "image": "/assets/img/gorra-8.jpg"
+    }
+  ]
+}

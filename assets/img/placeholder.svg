@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+  <rect width="600" height="600" fill="#1a1a1a"/>
+  <g fill="none" stroke="#c8a96a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".7">
+    <path d="M150 360c0-90 60-150 150-150s150 60 150 150z"/>
+    <path d="M450 360c60 0 100 15 110 35-60 10-150 5-230-5"/>
+    <circle cx="300" cy="205" r="8"/>
+  </g>
+  <text x="300" y="470" fill="#777" font-family="Arial,sans-serif" font-size="26" text-anchor="middle" letter-spacing="4">FOTO PRÓXIMAMENTE</text>
+</svg>
