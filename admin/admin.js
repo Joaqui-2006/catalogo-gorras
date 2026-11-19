@@ -4,6 +4,7 @@
   const REPO = "Joaqui-2006/catalogo-gorras";
   const BRANCH = "main";
   const TOKEN_KEY = "monarch_gh_token";
+  const SESSION_KEY = "monarch_admin_session";
   const PLACEHOLDER = "/assets/img/placeholder.svg";
   const CATEGORIES = ["Snapback", "Trucker", "Dad Hat", "Edición limitada"];
 
@@ -396,17 +397,142 @@
 
     $("btnResetStats").addEventListener("click", async () => {
       if (!confirm("¿Reiniciar todos los contadores de visitas a cero?")) return;
-      await fetch("/api/stats", {
+      const sessionToken = localStorage.getItem(SESSION_KEY) || "";
+      const res = await fetch("/api/stats", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`
+        },
         body: JSON.stringify({ type: "reset" })
       });
+      if (!res.ok) {
+        showAlert("No autorizado para reiniciar estadísticas. Inicia sesión nuevamente.", "danger");
+        return;
+      }
       loadStats();
     });
   }
 
-  updateAuthBadge();
+  /* ---------- Autenticación con Usuario y Contraseña (/api/auth) ---------- */
+  function unlockAdminPanel(username) {
+    $("loginScreen").classList.add("d-none");
+    $("adminApp").classList.remove("d-none");
+    $("userBadge").innerHTML = `<i class="bi bi-person-check-fill me-1"></i>${escapeHTML(username)}`;
+    $("newAdminUser").value = username;
+    updateAuthBadge();
+    loadCatalog();
+    loadStats();
+  }
+
+  function lockAdminPanel() {
+    localStorage.removeItem(SESSION_KEY);
+    $("adminApp").classList.add("d-none");
+    $("loginScreen").classList.remove("d-none");
+    $("loginPass").value = "";
+  }
+
+  async function checkExistingSession() {
+    const token = localStorage.getItem(SESSION_KEY);
+    if (!token) return;
+    try {
+      const res = await fetch("/api/auth", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated) {
+          unlockAdminPanel(data.username || "admin");
+          return;
+        }
+      }
+      localStorage.removeItem(SESSION_KEY);
+    } catch (e) {
+      // Si no hay conexión con la función aún, permanece en la pantalla de login
+    }
+  }
+
+  function bindAuthEvents() {
+    $("btnToggleLoginPass").addEventListener("click", () => {
+      const inp = $("loginPass");
+      inp.type = inp.type === "password" ? "text" : "password";
+    });
+
+    $("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errBox = $("loginError");
+      errBox.classList.add("d-none");
+      const btn = $("btnLoginSubmit");
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Verificando...`;
+
+      try {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "login",
+            username: $("loginUser").value.trim(),
+            password: $("loginPass").value
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || "Usuario o contraseña incorrectos.");
+        }
+        localStorage.setItem(SESSION_KEY, data.token);
+        unlockAdminPanel(data.username || "admin");
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.classList.remove("d-none");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión`;
+      }
+    });
+
+    $("btnLogout").addEventListener("click", () => {
+      lockAdminPanel();
+    });
+
+    $("changeCredsForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = $("btnChangeCreds");
+      btn.disabled = true;
+      try {
+        const sessionToken = localStorage.getItem(SESSION_KEY) || "";
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`
+          },
+          body: JSON.stringify({
+            action: "change_credentials",
+            newUsername: $("newAdminUser").value.trim(),
+            currentPassword: $("currentAdminPass").value,
+            newPassword: $("newAdminPass").value
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || "No se pudieron actualizar las credenciales.");
+        }
+        localStorage.setItem(SESSION_KEY, data.token);
+        $("userBadge").innerHTML = `<i class="bi bi-person-check-fill me-1"></i>${escapeHTML(data.username)}`;
+        $("currentAdminPass").value = "";
+        $("newAdminPass").value = "";
+        showAlert('<i class="bi bi-shield-check me-1"></i> <strong>¡Usuario y contraseña actualizados!</strong> Tu nueva clave ya está activa.', "success");
+      } catch (err) {
+        showAlert(`<i class="bi bi-exclamation-triangle-fill me-1"></i> ${escapeHTML(err.message)}`, "danger");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   bindEvents();
-  loadCatalog();
-  loadStats();
+  bindAuthEvents();
+  checkExistingSession();
 })();

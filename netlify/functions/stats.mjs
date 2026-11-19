@@ -1,4 +1,5 @@
 import { getStore } from "@netlify/blobs";
+import { verifyToken } from "./auth.mjs";
 
 const DEFAULT_STATS = {
   totalVisits: 0,
@@ -48,6 +49,13 @@ export default async (req) => {
         stats.totalWhatsappClicks = (stats.totalWhatsappClicks || 0) + 1;
         stats.byDate[today].wa += 1;
       } else if (type === "reset") {
+        const authStore = getStore("monarch-auth");
+        const auth = await authStore.get("credentials", { type: "json" });
+        const authHeader = req.headers.get("authorization") || "";
+        const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+        if (!auth || !verifyToken(token, auth.secret)) {
+          return new Response(JSON.stringify({ error: "No autorizado" }), { status: 401, headers: CORS });
+        }
         stats = structuredClone(DEFAULT_STATS);
         await store.setJSON("summary", stats);
         return new Response(JSON.stringify(stats), { status: 200, headers: CORS });
