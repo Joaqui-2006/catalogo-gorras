@@ -1,6 +1,13 @@
 {
   "products": [
     {
+      "name": "gorrita ",
+      "price": 85000,
+      "category": "Snapback",
+      "description": "Describe los materiales, visera y estilo de esta gorra.",
+      "image": "/assets/img/placeholder.svg"
+    },
+    {
       "image": "/assets/img/03_Cultivos.png",
       "name": "gorra mela",
       "price": 85000,
