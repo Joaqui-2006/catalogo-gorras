@@ -1,9 +1,9 @@
-# Catálogo digital – BARRIO CAPS
+﻿# CatÃ¡logo digital â€“ BARRIO CAPS
 
-Sitio estático (HTML + CSS + Bootstrap 5 + JS) con panel de administrador (Decap CMS).
+Sitio estÃ¡tico (HTML + CSS + Bootstrap 5 + JS) con panel de administrador (Decap CMS).
 
 ## Personalizar
-- **Número de WhatsApp, marca, redes:** `js/config.js` (número con indicativo, sin `+`; Colombia = `57...`).
+- **NÃºmero de WhatsApp, marca, redes:** `js/config.js` (nÃºmero con indicativo, sin `+`; Colombia = `57...`).
 - **Productos y fotos:** desde el panel `/admin` (ver abajo). Los datos quedan en `content/products.json` y las fotos en `assets/img/`.
 - **Foto del banner:** guarda `assets/img/hero.jpg`.
 
@@ -19,13 +19,11 @@ npx.cmd decap-server
 ```
 y abre http://localhost:8000/admin/
 
-## Publicar con panel de administrador (Netlify + GitHub)
-1. Sube la carpeta a un repositorio de GitHub (rama `main`).
-2. En Netlify: *Add new site → Import from Git* y elige el repositorio (sin comando de build; directorio de publicación `.`).
-3. En el sitio de Netlify: *Site configuration → Identity → Enable Identity*.
-   - *Registration preferences* → **Invite only**.
-   - *Services → Git Gateway → Enable*.
-4. *Identity → Invite users*: invita el correo del administrador y acepta el correo de invitación.
-5. El administrador entra a `https://TU-SITIO.netlify.app/admin/`, inicia sesión, agrega/edita gorras y sube fotos. Al pulsar *Publicar*, el sitio se actualiza solo en ~1 minuto.
+## Panel de administrador (/admin)
+Usa Sveltia CMS con el backend de GitHub (Netlify Git Gateway/Identity ya no está disponible).
+1. Entra a `https://barrio-caps-catalogo.netlify.app/admin/` y pulsa *Sign in with token*.
+2. Crea un token en GitHub: Settings → Developer settings → Personal access tokens → *Fine-grained*, solo para el repo `catalogo-gorras`, permiso **Contents: Read and write**.
+3. Pega el token, agrega/edita gorras y sube fotos. Al guardar, se hace un commit en GitHub.
+4. Para que el commit actualice el sitio, el repo debe estar conectado a Netlify (despliegue continuo).
 
-Los visitantes ven el catálogo sin login; solo `/admin` lo requiere.
+Los visitantes ven el catálogo sin login; solo `/admin` requiere el token.
