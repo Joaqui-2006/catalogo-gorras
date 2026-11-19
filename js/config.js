@@ -12,6 +12,8 @@ const CONFIG = {
 
   // Mensajes ({producto} se reemplaza automáticamente por el nombre de la gorra)
   productMessage: "Hola, me interesa la gorra «{producto}». ¿Está disponible?",
+  orderIntro: "Hola, quiero hacer este pedido:",
+  orderOutro: "¿Me confirman disponibilidad y envío?",
   generalMessage: "Hola, quiero más información sobre sus gorras.",
 
   // Moneda

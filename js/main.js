@@ -2,6 +2,14 @@
   "use strict";
 
   const PLACEHOLDER = "assets/img/placeholder.svg";
+  const CART_KEY = "monarch_pedido";
+
+  let PRODUCTS = [];
+  const state = { cat: "Todas", q: "", sort: "default" };
+  let cart = loadCart(); // { "Nombre de la gorra": cantidad }
+
+  /* ---------- Utilidades ---------- */
+  const $ = (id) => document.getElementById(id);
 
   const waLink = (text) =>
     "https://wa.me/" + CONFIG.whatsappNumber + "?text=" + encodeURIComponent(text);
@@ -16,7 +24,16 @@
   const escapeHTML = (s) =>
     String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  // Animación de aparición al hacer scroll
+  // Minúsculas y sin tildes, para que "edicion" encuentre "Edición"
+  const normalize = (s) =>
+    String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const imgFallback = (root) =>
+    root.querySelectorAll("img[data-fallback]").forEach((img) =>
+      img.addEventListener("error", () => { img.src = PLACEHOLDER; }, { once: true })
+    );
+
+  /* ---------- Animación de aparición ---------- */
   const observer = "IntersectionObserver" in window
     ? new IntersectionObserver((entries) => {
         entries.forEach((e) => {
@@ -34,7 +51,7 @@
     });
   }
 
-  // Marca, WhatsApp general y redes
+  /* ---------- Marca, WhatsApp general y redes ---------- */
   function applyConfig() {
     document.querySelectorAll("[data-brand]").forEach((el) => (el.textContent = CONFIG.brandName));
     document.querySelectorAll("[data-tagline]").forEach((el) => (el.textContent = CONFIG.tagline));
@@ -44,61 +61,213 @@
       const url = CONFIG.social[el.dataset.social];
       url ? (el.href = url) : (el.style.display = "none");
     });
-    document.getElementById("year").textContent = new Date().getFullYear();
+    $("year").textContent = new Date().getFullYear();
   }
 
-  // Catálogo
-  const grid = document.getElementById("grid");
-  const filters = document.getElementById("filters");
-  const empty = document.getElementById("empty");
+  /* ---------- Catálogo ---------- */
+  const grid = $("grid");
+  const empty = $("empty");
 
-  function cardHTML(p) {
+  function visibleProducts() {
+    const q = normalize(state.q.trim());
+    let list = PRODUCTS.map((p, i) => ({ p, i })).filter(({ p }) => {
+      const okCat = state.cat === "Todas" || p.category === state.cat;
+      const okQ = !q || normalize(p.name + " " + p.description + " " + p.category).includes(q);
+      return okCat && okQ;
+    });
+    if (state.sort === "price-asc") list.sort((a, b) => a.p.price - b.p.price);
+    if (state.sort === "price-desc") list.sort((a, b) => b.p.price - a.p.price);
+    if (state.sort === "name") list.sort((a, b) => a.p.name.localeCompare(b.p.name, "es"));
+    return list;
+  }
+
+  function cardHTML({ p, i }) {
     const msg = CONFIG.productMessage.replace("{producto}", p.name);
     return `
-      <div class="col-12 col-sm-6 col-lg-4 col-xl-3 product-col">
+      <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
         <article class="product-card reveal">
-          <div class="product-img">
-            <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" loading="lazy">
+          <button type="button" class="product-img" data-detail="${i}" aria-label="Ver detalle de ${escapeHTML(p.name)}">
+            <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" loading="lazy" data-fallback>
             <span class="badge-cat">${escapeHTML(p.category)}</span>
-          </div>
+          </button>
           <div class="product-body">
-            <h3>${escapeHTML(p.name)}</h3>
+            <h3><button type="button" class="title-link" data-detail="${i}">${escapeHTML(p.name)}</button></h3>
             <span class="product-price">${formatPrice(p.price)}</span>
             <p class="product-desc">${escapeHTML(p.description)}</p>
-            <a class="btn btn-wa w-100" href="${waLink(msg)}" target="_blank" rel="noopener">
-              <i class="bi bi-whatsapp"></i> Consultar por WhatsApp
-            </a>
+            <div class="card-actions">
+              <a class="btn btn-wa flex-grow-1" href="${waLink(msg)}" target="_blank" rel="noopener">
+                <i class="bi bi-whatsapp"></i> Consultar
+              </a>
+              <button type="button" class="btn btn-outline-light btn-add" data-add="${i}" aria-label="Agregar ${escapeHTML(p.name)} a mi pedido" title="Agregar a mi pedido">
+                <i class="bi bi-bag-plus"></i>
+              </button>
+            </div>
           </div>
         </article>
       </div>`;
   }
 
-  function renderProducts(category) {
-    const list = category === "Todas" ? PRODUCTS : PRODUCTS.filter((p) => p.category === category);
+  function renderProducts() {
+    const list = visibleProducts();
     grid.innerHTML = list.map(cardHTML).join("");
-    grid.querySelectorAll("img").forEach((img) =>
-      img.addEventListener("error", () => { img.src = PLACEHOLDER; }, { once: true })
-    );
+    imgFallback(grid);
     empty.classList.toggle("d-none", list.length > 0);
+    $("resultCount").textContent = list.length + (list.length === 1 ? " gorra" : " gorras");
     observeReveals(grid);
   }
 
-  let PRODUCTS = [];
-
   function renderFilters() {
+    const filters = $("filters");
     const cats = ["Todas", ...new Set(PRODUCTS.map((p) => p.category))];
     filters.innerHTML = cats
-      .map((c, i) => `<button type="button" class="filter-btn${i === 0 ? " active" : ""}" data-cat="${escapeHTML(c)}">${escapeHTML(c)}</button>`)
+      .map((c) => `<button type="button" class="filter-btn${c === state.cat ? " active" : ""}" data-cat="${escapeHTML(c)}">${escapeHTML(c)}</button>`)
       .join("");
-    filters.addEventListener("click", (e) => {
-      const btn = e.target.closest(".filter-btn");
-      if (!btn) return;
-      filters.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      renderProducts(btn.dataset.cat);
-    });
   }
 
+  /* ---------- Detalle de producto ---------- */
+  let modal, currentIndex = null;
+
+  function openDetail(i) {
+    const p = PRODUCTS[i];
+    if (!p) return;
+    currentIndex = i;
+    const img = $("pmImg");
+    img.src = p.image;
+    img.alt = p.name;
+    img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER; };
+    $("pmCat").textContent = p.category;
+    $("pmName").textContent = p.name;
+    $("pmPrice").textContent = formatPrice(p.price);
+    $("pmDesc").textContent = p.description;
+    $("pmWa").href = waLink(CONFIG.productMessage.replace("{producto}", p.name));
+    modal = modal || new bootstrap.Modal($("productModal"));
+    modal.show();
+  }
+
+  /* ---------- Pedido (carrito) ---------- */
+  function loadCart() {
+    try { return JSON.parse(localStorage.getItem(CART_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveCart() {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) { /* modo privado */ }
+  }
+
+  function cartLines() {
+    return Object.entries(cart)
+      .map(([name, qty]) => ({ p: PRODUCTS.find((x) => x.name === name), qty }))
+      .filter((l) => l.p && l.qty > 0);
+  }
+
+  function showToast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(showToast.id);
+    showToast.id = setTimeout(() => t.classList.remove("show"), 1800);
+  }
+
+  function addToCart(i) {
+    const p = PRODUCTS[i];
+    if (!p) return;
+    cart[p.name] = (cart[p.name] || 0) + 1;
+    saveCart();
+    renderCart();
+    const badge = $("cartCount");
+    badge.classList.remove("bump");
+    void badge.offsetWidth;
+    badge.classList.add("bump");
+    showToast("Agregada: " + p.name);
+  }
+
+  function renderCart() {
+    const lines = cartLines();
+    const count = lines.reduce((s, l) => s + l.qty, 0);
+    const total = lines.reduce((s, l) => s + l.qty * l.p.price, 0);
+
+    $("cartCount").textContent = count;
+    $("cartCount").classList.toggle("d-none", count === 0);
+
+    const box = $("cartItems");
+    if (!lines.length) {
+      box.innerHTML = `<div class="cart-empty"><i class="bi bi-bag"></i><p>Tu pedido está vacío.<br>Agrega gorras desde el catálogo.</p></div>`;
+      $("cartFooter").classList.add("d-none");
+      return;
+    }
+
+    box.innerHTML = lines.map(({ p, qty }) => `
+      <div class="cart-item">
+        <img src="${escapeHTML(p.image)}" alt="" data-fallback>
+        <div class="cart-item-info">
+          <div class="cart-item-name">${escapeHTML(p.name)}</div>
+          <div class="cart-item-price">${formatPrice(p.price)}</div>
+          <div class="qty">
+            <button type="button" data-qty="-1" data-name="${escapeHTML(p.name)}" aria-label="Quitar una">−</button>
+            <span>${qty}</span>
+            <button type="button" data-qty="1" data-name="${escapeHTML(p.name)}" aria-label="Agregar una">+</button>
+          </div>
+        </div>
+        <button type="button" class="cart-remove" data-remove="${escapeHTML(p.name)}" aria-label="Eliminar ${escapeHTML(p.name)}"><i class="bi bi-trash"></i></button>
+      </div>`).join("");
+    imgFallback(box);
+
+    $("cartTotal").textContent = formatPrice(total);
+    $("cartFooter").classList.remove("d-none");
+
+    const items = lines.map(({ p, qty }) => `• ${qty} x ${p.name} (${formatPrice(p.price * qty)})`).join("\n");
+    const msg = `${CONFIG.orderIntro}\n\n${items}\n\nTotal: ${formatPrice(total)}\n\n${CONFIG.orderOutro}`;
+    $("cartSend").href = waLink(msg);
+  }
+
+  function changeQty(name, delta) {
+    cart[name] = (cart[name] || 0) + delta;
+    if (cart[name] <= 0) delete cart[name];
+    saveCart();
+    renderCart();
+  }
+
+  /* ---------- Eventos ---------- */
+  function bindEvents() {
+    $("filters").addEventListener("click", (e) => {
+      const btn = e.target.closest(".filter-btn");
+      if (!btn) return;
+      state.cat = btn.dataset.cat;
+      renderFilters();
+      renderProducts();
+    });
+
+    $("search").addEventListener("input", (e) => { state.q = e.target.value; renderProducts(); });
+    $("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderProducts(); });
+
+    grid.addEventListener("click", (e) => {
+      const add = e.target.closest("[data-add]");
+      if (add) return addToCart(+add.dataset.add);
+      const det = e.target.closest("[data-detail]");
+      if (det) openDetail(+det.dataset.detail);
+    });
+
+    $("pmAdd").addEventListener("click", () => {
+      if (currentIndex !== null) addToCart(currentIndex);
+    });
+
+    $("cartItems").addEventListener("click", (e) => {
+      const q = e.target.closest("[data-qty]");
+      if (q) return changeQty(q.dataset.name, +q.dataset.qty);
+      const r = e.target.closest("[data-remove]");
+      if (r) changeQty(r.dataset.remove, -Infinity);
+    });
+
+    $("cartClear").addEventListener("click", () => { cart = {}; saveCart(); renderCart(); });
+
+    // Cerrar menú móvil al navegar
+    document.querySelectorAll(".navbar-nav a").forEach((a) =>
+      a.addEventListener("click", () => {
+        const menu = $("menu");
+        if (menu.classList.contains("show")) bootstrap.Collapse.getInstance(menu)?.hide();
+      })
+    );
+  }
+
+  /* ---------- Inicio ---------- */
   // Los productos se editan desde /admin y se guardan en content/products.json
   async function loadProducts() {
     try {
@@ -113,18 +282,12 @@
 
   async function init() {
     applyConfig();
+    bindEvents();
     await loadProducts();
     renderFilters();
-    renderProducts("Todas");
+    renderProducts();
+    renderCart();
     observeReveals(document);
   }
   init();
-
-  // Cerrar menú móvil al navegar
-  document.querySelectorAll(".navbar-nav a").forEach((a) =>
-    a.addEventListener("click", () => {
-      const menu = document.getElementById("menu");
-      if (menu.classList.contains("show")) bootstrap.Collapse.getInstance(menu)?.hide();
-    })
-  );
 })();

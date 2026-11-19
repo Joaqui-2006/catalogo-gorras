@@ -1,12 +1,20 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monarch Street | Catálogo de gorras streetwear</title>
-  <meta name="description" content="Catálogo digital de gorras urbanas y streetwear. Consulta por WhatsApp.">
+  <meta name="description" content="Monarch Street: More than caps. Catálogo digital de gorras urbanas y streetwear. Consulta o haz tu pedido por WhatsApp.">
   <meta name="theme-color" content="#0d0d0d">
   <link rel="icon" href="assets/img/logo.jpg">
+
+  <!-- Vista previa al compartir el enlace (WhatsApp, Instagram, Facebook...) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Monarch Street | More than caps">
+  <meta property="og:description" content="Catálogo de gorras streetwear. Elige tu modelo y pídelo por WhatsApp.">
+  <meta property="og:image" content="https://monarchstreet.netlify.app/assets/img/logo.jpg">
+  <meta property="og:url" content="https://monarchstreet.netlify.app/">
+  <meta name="twitter:card" content="summary_large_image">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +29,9 @@
   <nav class="navbar navbar-expand-md fixed-top navbar-dark site-nav">
     <div class="container">
       <a class="navbar-brand brand d-flex align-items-center gap-2" href="#inicio"><img src="assets/img/logo.jpg" alt="" class="nav-logo"><span data-brand>MONARCH STREET</span></a>
+      <button class="btn btn-cart ms-auto ms-md-3 me-2 me-md-0 order-md-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#cartCanvas" aria-label="Ver mi pedido">
+        <i class="bi bi-bag"></i><span class="cart-count" id="cartCount">0</span>
+      </button>
       <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#menu" aria-label="Abrir menú">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -39,14 +50,14 @@
   <header id="inicio" class="hero d-flex align-items-center">
     <div class="container">
       <div class="hero-content">
-      <p class="eyebrow reveal">Streetwear · Colombia</p>
-      <h1 class="reveal" data-tagline>Gorras con actitud de calle</h1>
-      <p class="lead reveal">Diseños exclusivos para quienes visten la ciudad. Elige tu modelo y escríbenos directo por WhatsApp.</p>
-      <div class="d-flex flex-wrap gap-3 reveal">
-        <a href="#catalogo" class="btn btn-accent btn-lg">Ver catálogo</a>
-        <a data-wa-general href="#" target="_blank" rel="noopener" class="btn btn-outline-light btn-lg"><i class="bi bi-whatsapp"></i> Escríbenos</a>
+        <p class="eyebrow reveal">Streetwear · Colombia</p>
+        <h1 class="reveal" data-tagline>More than caps</h1>
+        <p class="lead reveal">Diseños exclusivos para quienes visten la ciudad. Elige tu modelo y escríbenos directo por WhatsApp.</p>
+        <div class="d-flex flex-wrap gap-3 reveal">
+          <a href="#catalogo" class="btn btn-accent btn-lg">Ver catálogo</a>
+          <a data-wa-general href="#" target="_blank" rel="noopener" class="btn btn-outline-light btn-lg"><i class="bi bi-whatsapp"></i> Escríbenos</a>
+        </div>
       </div>
-    </div>
     </div>
     <a href="#catalogo" class="scroll-hint" aria-label="Bajar al catálogo"><i class="bi bi-chevron-down"></i></a>
   </header>
@@ -57,11 +68,26 @@
       <div class="container">
         <div class="section-head reveal">
           <h2>Catálogo</h2>
-          <p>Toca “Consultar” en tu gorra favorita y te respondemos por WhatsApp.</p>
+          <p>Toca una gorra para ver el detalle. Consúltala por WhatsApp o agrégala a tu pedido.</p>
         </div>
         <div id="filters" class="filters reveal" role="group" aria-label="Filtrar por categoría"></div>
+
+        <div class="toolbar reveal">
+          <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input id="search" type="search" class="form-control" placeholder="Buscar gorra..." aria-label="Buscar gorra" autocomplete="off">
+          </div>
+          <select id="sort" class="form-select sort-select" aria-label="Ordenar">
+            <option value="default">Destacados</option>
+            <option value="price-asc">Precio: menor a mayor</option>
+            <option value="price-desc">Precio: mayor a menor</option>
+            <option value="name">Nombre A–Z</option>
+          </select>
+          <span id="resultCount" class="result-count" aria-live="polite"></span>
+        </div>
+
         <div id="grid" class="row g-4"></div>
-        <p id="empty" class="text-center text-secondary d-none mt-5">No hay gorras en esta categoría por ahora.</p>
+        <p id="empty" class="text-center text-secondary d-none mt-5">No encontramos gorras con ese filtro. Prueba con otra búsqueda.</p>
       </div>
     </section>
 
@@ -89,12 +115,55 @@
     </div>
   </footer>
 
+  <!-- Detalle de producto -->
+  <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="pmName" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content product-modal">
+        <button type="button" class="btn-close modal-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <div class="row g-0">
+          <div class="col-md-6 pm-img"><img id="pmImg" src="" alt=""></div>
+          <div class="col-md-6 pm-body">
+            <span id="pmCat" class="badge-cat static"></span>
+            <h3 id="pmName"></h3>
+            <p id="pmPrice" class="product-price fs-4"></p>
+            <p id="pmDesc" class="product-desc flex-grow-0"></p>
+            <div class="d-grid gap-2 mt-auto">
+              <a id="pmWa" class="btn btn-wa" href="#" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> Consultar por WhatsApp</a>
+              <button id="pmAdd" type="button" class="btn btn-outline-light"><i class="bi bi-bag-plus"></i> Agregar a mi pedido</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mi pedido -->
+  <div class="offcanvas offcanvas-end cart-canvas" tabindex="-1" id="cartCanvas" aria-labelledby="cartTitle">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="cartTitle">Mi pedido</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+      <div id="cartItems" class="cart-items"></div>
+      <div id="cartFooter" class="cart-footer mt-auto d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span>Total</span><strong id="cartTotal" class="product-price fs-5"></strong>
+        </div>
+        <a id="cartSend" class="btn btn-wa w-100 mb-2" href="#" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> Enviar pedido por WhatsApp</a>
+        <button id="cartClear" type="button" class="btn btn-link text-secondary w-100 btn-sm">Vaciar pedido</button>
+        <p class="small text-secondary text-center mb-0 mt-2">Confirmaremos disponibilidad y envío por WhatsApp.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aviso breve -->
+  <div id="toast" class="toast-msg" role="status" aria-live="polite"></div>
+
   <!-- Botón flotante -->
   <a data-wa-general href="#" target="_blank" rel="noopener" class="wa-float" aria-label="Contactar por WhatsApp"><i class="bi bi-whatsapp"></i></a>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/main.js"></script>
-
 </body>
 </html>
