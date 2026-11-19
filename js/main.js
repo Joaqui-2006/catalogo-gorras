@@ -28,6 +28,18 @@
   const normalize = (s) =>
     String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+  // Registro de analíticas hacia /api/stats (no bloquea la navegación)
+  function trackEvent(type, product = null) {
+    try {
+      fetch("/api/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, product }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (e) { /* silencioso en local si no hay función */ }
+  }
+
   const imgFallback = (root) =>
     root.querySelectorAll("img[data-fallback]").forEach((img) =>
       img.addEventListener("error", () => { img.src = PLACEHOLDER; }, { once: true })
@@ -95,7 +107,7 @@
             <span class="product-price">${formatPrice(p.price)}</span>
             <p class="product-desc">${escapeHTML(p.description)}</p>
             <div class="card-actions">
-              <a class="btn btn-wa flex-grow-1" href="${waLink(msg)}" target="_blank" rel="noopener">
+              <a class="btn btn-wa flex-grow-1" href="${waLink(msg)}" data-wa-product="${escapeHTML(p.name)}" target="_blank" rel="noopener">
                 <i class="bi bi-whatsapp"></i> Consultar
               </a>
               <button type="button" class="btn btn-outline-light btn-add" data-add="${i}" aria-label="Agregar ${escapeHTML(p.name)} a mi pedido" title="Agregar a mi pedido">
@@ -140,6 +152,8 @@
     $("pmPrice").textContent = formatPrice(p.price);
     $("pmDesc").textContent = p.description;
     $("pmWa").href = waLink(CONFIG.productMessage.replace("{producto}", p.name));
+    $("pmWa").dataset.waProduct = p.name;
+    trackEvent("view", p.name);
     modal = modal || new bootstrap.Modal($("productModal"));
     modal.show();
   }
@@ -172,6 +186,7 @@
     cart[p.name] = (cart[p.name] || 0) + 1;
     saveCart();
     renderCart();
+    trackEvent("cart", p.name);
     const badge = $("cartCount");
     badge.classList.remove("bump");
     void badge.offsetWidth;
@@ -258,6 +273,16 @@
 
     $("cartClear").addEventListener("click", () => { cart = {}; saveCart(); renderCart(); });
 
+    $("cartSend").addEventListener("click", () => trackEvent("order"));
+    $("pmWa").addEventListener("click", (e) => trackEvent("wa", e.currentTarget.dataset.waProduct || null));
+    document.querySelectorAll("[data-wa-general]").forEach((el) =>
+      el.addEventListener("click", () => trackEvent("wa", null))
+    );
+    grid.addEventListener("click", (e) => {
+      const wa = e.target.closest("[data-wa-product]");
+      if (wa) trackEvent("wa", wa.dataset.waProduct);
+    });
+
     // Cerrar menú móvil al navegar
     document.querySelectorAll(".navbar-nav a").forEach((a) =>
       a.addEventListener("click", () => {
@@ -283,6 +308,10 @@
   async function init() {
     applyConfig();
     bindEvents();
+    if (!sessionStorage.getItem("monarch_visited")) {
+      sessionStorage.setItem("monarch_visited", "1");
+      trackEvent("visit");
+    }
     await loadProducts();
     renderFilters();
     renderProducts();

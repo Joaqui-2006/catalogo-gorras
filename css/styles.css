@@ -166,6 +166,8 @@ p { text-wrap: pretty; }
 .product-desc { font-size: .92rem; line-height: 1.6; }
 .btn { letter-spacing: .02em; }
 .site-footer p { margin-top: .25rem; }
+.admin-footer-link { color: var(--muted); text-decoration: none; opacity: .65; transition: opacity .2s, color .2s; }
+.admin-footer-link:hover { opacity: 1; color: var(--accent-text); }
 
 @media (min-width: 768px) and (max-width: 991.98px) {
   .hero { background-size: 40vw, auto; background-position: right 3% center, center; }
