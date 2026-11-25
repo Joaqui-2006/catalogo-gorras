@@ -12,7 +12,7 @@
     if (s.startsWith("data:") || s.startsWith("http")) return s;
     return "../" + s.replace(/^(\.\.\/|\/)+/, "");
   };
-  const CATEGORIES = ["Snapback", "Trucker", "Dad Hat", "Edición limitada"];
+  let categories = ["Snapback", "Trucker", "Dad Hat", "Edición limitada"];
 
   let products = [];
   // pendingImages: { idx: { fileName, base64, dataUrl } }
@@ -87,9 +87,29 @@
     });
   }
 
+  
+  /* ---------- Administrar Categorías / Catálogos ---------- */
+  function renderCategories() {
+    const box = $("categoriesPills");
+    if (!box) return;
+    if (!categories.length) {
+      box.innerHTML = '<span class="small text-secondary">No hay categorías creadas. Agrega una arriba.</span>';
+      return;
+    }
+    box.innerHTML = categories.map((cat, idx) => {
+      const count = products.filter((p) => p.category === cat).length;
+      return `
+        <span class="badge rounded-pill d-inline-flex align-items-center gap-2 px-3 py-2" style="background:#141a2e;border:1px solid rgba(43,92,255,.45);font-size:.82rem">
+          <span>${escapeHTML(cat)} <small class="text-secondary">(${count})</small></span>
+          <button type="button" class="btn-close btn-close-white" style="font-size:.55rem" data-del-cat="${idx}" title="Eliminar categoría «${escapeHTML(cat)}»"></button>
+        </span>`;
+    }).join("");
+  }
+
   /* ---------- Renderizar lista de gorras ---------- */
   function renderCaps() {
     $("capCounter").textContent = `${products.length} ${products.length === 1 ? "gorra" : "gorras"}`;
+    renderCategories();
     const box = $("capsList");
     if (!products.length) {
       box.innerHTML = `<div class="panel-card text-center text-secondary py-5">No hay gorras. Pulsa <strong>Nueva gorra</strong> para agregar la primera.</div>`;
@@ -98,7 +118,7 @@
 
     box.innerHTML = products.map((p, i) => {
       const previewSrc = pendingImages[i] ? pendingImages[i].dataUrl : resolveAdminImg(p.image);
-      const cats = CATEGORIES.includes(p.category) ? CATEGORIES : [...CATEGORIES, p.category];
+      const cats = categories.includes(p.category) ? categories : [...categories, p.category];
       return `
         <div class="cap-row" data-idx="${i}">
           <div class="d-flex flex-column flex-md-row gap-3 align-items-start">
@@ -151,7 +171,7 @@
   async function loadCatalog() {
     try {
       const localOverride = JSON.parse(localStorage.getItem("monarch_custom_products") || "null");
-      if (Array.isArray(localOverride) && localOverride.length > 0) {
+      if (Array.isArray(localOverride)) {
         products = localOverride;
         renderCaps();
         return;
@@ -228,8 +248,11 @@
           products[idx].image = `assets/img/${img.fileName}`;
           delete pendingImages[idx];
         }
+        siteSettings.categories = categories;
+        localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
         const jsonStr = JSON.stringify({ products }, null, 2) + "\n";
         await ghPutFile("content/products.json", utf8ToBase64(jsonStr), "Actualizar catálogo de gorras desde panel admin", token);
+        await ghPutFile("content/settings.json", utf8ToBase64(JSON.stringify(siteSettings, null, 2) + "\n"), "Actualizar categorías del catálogo desde panel admin", token);
         localStorage.setItem("monarch_custom_products", JSON.stringify(products));
         renderCaps();
         showAlert('<i class="bi bi-check-circle-fill me-1"></i> <strong>¡Cambios guardados y sincronizados en la nube!</strong>', "success");
@@ -252,6 +275,7 @@
     brandName: "MONARCH STREET",
     tagline: "More than caps",
     whatsappNumber: "573156994134",
+    categories: ["Snapback", "Trucker", "Dad Hat", "Edición limitada"],
     social: {
       instagram: "https://www.instagram.com/",
       tiktok: "https://www.tiktok.com/",
@@ -272,6 +296,10 @@
         }
       }
     } catch (e) {}
+    if (Array.isArray(siteSettings.categories) && siteSettings.categories.length) {
+      categories = siteSettings.categories;
+      renderCaps();
+    }
     if ($("setWhatsapp")) $("setWhatsapp").value = siteSettings.whatsappNumber || "";
     if ($("setTagline")) $("setTagline").value = siteSettings.tagline || "More than caps";
     if ($("setInstagram")) $("setInstagram").value = (siteSettings.social && siteSettings.social.instagram) || "";
@@ -293,6 +321,7 @@
         brandName: "MONARCH STREET",
         tagline: ($("setTagline").value || "More than caps").trim(),
         whatsappNumber: cleanWa,
+        categories,
         social: {
           instagram: ($("setInstagram").value || "").trim(),
           tiktok: ($("setTiktok").value || "").trim(),
@@ -458,11 +487,64 @@
       }
     });
 
+    
+    if ($("btnAddCategory")) {
+      $("btnAddCategory").addEventListener("click", () => {
+        const inp = $("newCategoryInput");
+        const val = (inp.value || "").trim();
+        if (!val) return;
+        if (!categories.some((c) => c.toLowerCase() === val.toLowerCase())) {
+          categories.push(val);
+          siteSettings.categories = categories;
+          localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
+          renderCaps();
+          showAlert(`Categoría / catálogo <strong>«${escapeHTML(val)}»</strong> agregado. Pulsa <strong>Guardar y publicar cambios</strong> para publicarlo.`, "info");
+        }
+        inp.value = "";
+      });
+    }
+
+    if ($("categoriesPills")) {
+      $("categoriesPills").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-del-cat]");
+        if (!btn) return;
+        const idx = Number(btn.dataset.delCat);
+        const catName = categories[idx];
+        if (!catName) return;
+        const inUse = products.filter((p) => p.category === catName).length;
+        const msg = inUse > 0
+          ? `La categoría «${catName}» tiene ${inUse} gorra(s).
+
+¿Quieres eliminar también las ${inUse} gorra(s) de esta categoría? (Aceptar = eliminar categoría y sus gorras / Cancelar = no hacer nada)`
+          : `¿Eliminar la categoría / catálogo «${catName}»?`;
+        if (!confirm(msg)) return;
+        if (inUse > 0) {
+          products = products.filter((p) => p.category !== catName);
+        }
+        categories.splice(idx, 1);
+        if (!categories.length) categories.push("General");
+        siteSettings.categories = categories;
+        localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
+        renderCaps();
+        showAlert(`Categoría <strong>«${escapeHTML(catName)}»</strong> eliminada. Pulsa <strong>Guardar y publicar cambios</strong> para confirmar en la web.`, "warning");
+      });
+    }
+
+    if ($("btnClearCatalog")) {
+      $("btnClearCatalog").addEventListener("click", () => {
+        if (!products.length) return;
+        if (!confirm("¿Estás seguro de eliminar TODAS las gorras del catálogo para empezar desde cero?")) return;
+        products = [];
+        renderCaps();
+        showAlert("Se vació el catálogo. Pulsa <strong>Guardar y publicar cambios</strong> para aplicar o agrega nuevas gorras.", "warning");
+      });
+    }
+
     $("btnAddCap").addEventListener("click", () => {
       products.unshift({
         name: "Nueva Gorra Monarch",
         price: 85000,
-        category: "Snapback",
+        category: categories[0] || "Snapback",
         description: "Describe los materiales, visera y estilo de esta gorra.",
         image: "/assets/img/placeholder.svg"
       });

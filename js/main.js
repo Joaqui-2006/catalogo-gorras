@@ -124,6 +124,7 @@
       if (custom.brandName) CONFIG.brandName = custom.brandName;
       if (custom.tagline) CONFIG.tagline = custom.tagline;
       if (custom.whatsappNumber) CONFIG.whatsappNumber = String(custom.whatsappNumber).replace(/\D/g, "");
+      if (Array.isArray(custom.categories) && custom.categories.length) CONFIG.categories = custom.categories;
       if (custom.social) CONFIG.social = { ...CONFIG.social, ...custom.social };
     }
   }
@@ -199,7 +200,11 @@
 
   function renderFilters() {
     const filters = $("filters");
-    const cats = ["Todas", ...new Set(PRODUCTS.map((p) => p.category))];
+    const baseCats = Array.isArray(CONFIG.categories) && CONFIG.categories.length
+      ? CONFIG.categories
+      : ["Snapback", "Trucker", "Dad Hat", "Edición limitada"];
+    const cats = ["Todas", ...new Set([...baseCats, ...PRODUCTS.map((p) => p.category).filter(Boolean)])];
+    if (!cats.includes(state.cat)) state.cat = "Todas";
     filters.innerHTML = cats
       .map((c) => `<button type="button" class="filter-btn${c === state.cat ? " active" : ""}" data-cat="${escapeHTML(c)}">${escapeHTML(c)}</button>`)
       .join("");
@@ -366,7 +371,7 @@
   async function loadProducts() {
     try {
       const localOverride = JSON.parse(localStorage.getItem("monarch_custom_products") || "null");
-      if (Array.isArray(localOverride) && localOverride.length > 0) {
+      if (Array.isArray(localOverride)) {
         PRODUCTS = localOverride;
         return;
       }

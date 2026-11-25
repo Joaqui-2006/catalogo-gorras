@@ -154,13 +154,30 @@
 
       <!-- ================= TAB 1: CATÁLOGO E IMÁGENES ================= -->
       <div class="tab-pane fade show active" id="tabCatalogo" role="tabpanel">
-        <div class="panel-card mb-4">
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="panel-card mb-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
             <div>
-              <h2 class="h4 mb-1">Administrar gorras y fotografías</h2>
-              <p class="text-secondary small mb-0">Sube la foto de cada gorra desde tu computador o celular (se redimensiona y optimiza automáticamente), edita el nombre, precio en COP, categoría o descripción y pulsa <strong>Guardar y publicar cambios</strong>.</p>
+              <h2 class="h4 mb-1">Administrar gorras, fotografías y catálogos</h2>
+              <p class="text-secondary small mb-0">Agrega o elimina categorías del catálogo, sube las fotos de tus gorras o limpia el catálogo completo con un clic. Al terminar pulsa <strong>Guardar y publicar cambios</strong>.</p>
             </div>
-            <span id="capCounter" class="badge bg-primary bg-opacity-25 text-light fs-6 rounded-pill px-3 py-2">0 gorras</span>
+            <div class="d-flex align-items-center gap-2">
+              <span id="capCounter" class="badge bg-primary bg-opacity-25 text-light fs-6 rounded-pill px-3 py-2">0 gorras</span>
+              <button id="btnClearCatalog" type="button" class="btn btn-outline-danger btn-sm rounded-pill">
+                <i class="bi bi-trash3-fill me-1"></i> Eliminar todo el catálogo
+              </button>
+            </div>
+          </div>
+
+          <!-- Gestor de Categorías / Sub-catálogos -->
+          <div class="p-3 rounded-3" style="background:var(--surface-2);border:1px solid rgba(255,255,255,.06)">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+              <span class="small fw-semibold"><i class="bi bi-tags-fill text-primary me-1"></i> Categorías / Catálogos activos (filtros de la tienda):</span>
+              <div class="input-group input-group-sm" style="max-width:340px">
+                <input id="newCategoryInput" type="text" class="form-control" placeholder="Nueva categoría (ej. Beanie, Gorra Plana...)">
+                <button id="btnAddCategory" class="btn btn-accent px-3" type="button"><i class="bi bi-plus-lg"></i> Agregar catálogo</button>
+              </div>
+            </div>
+            <div id="categoriesPills" class="d-flex flex-wrap gap-2 pt-1"></div>
           </div>
         </div>
 
