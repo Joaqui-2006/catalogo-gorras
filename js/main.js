@@ -1,102 +1,90 @@
 (function () {
   "use strict";
 
+  const { escapeHTML, normalize, slug, formatPrice, safeUrl, dayKey } = UTIL;
+
   const PLACEHOLDER = "assets/img/placeholder.svg";
   const CART_KEY = "monarch_pedido";
 
-  let PRODUCTS = [];
   const state = { cat: "Todas", q: "", sort: "default" };
+  let PRODUCTS = [];
   let cart = loadCart(); // { "Nombre de la gorra": cantidad }
+  let modal = null;
+  let currentIndex = null;
 
-  /* ---------- Utilidades ---------- */
   const $ = (id) => document.getElementById(id);
 
-  const waLink = (text) =>
-    "https://wa.me/" + CONFIG.whatsappNumber + "?text=" + encodeURIComponent(text);
+  /* ---------- Utilidades ---------- */
+  const waLink = (text) => `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
 
-  const formatPrice = (n) =>
-    new Intl.NumberFormat(CONFIG.locale, {
-      style: "currency",
-      currency: CONFIG.currency,
-      maximumFractionDigits: 0,
-    }).format(n);
+  const imgSrc = (src) => {
+    const s = String(src || "").trim();
+    if (!s) return PLACEHOLDER;
+    return /^https?:\/\//i.test(s) ? s : s.replace(/^\/+/, "");
+  };
 
-  const escapeHTML = (s) =>
-    String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const siteBase = () => location.origin + location.pathname.replace(/index\.html$/i, "");
+  const capLink = (name) => `${siteBase()}?gorra=${encodeURIComponent(name)}#catalogo`;
 
-  // Normaliza rutas de imagen para que funcionen igual en Netlify (/) y en GitHub Pages (/catalogo-gorras/)
-  const resolveImg = (src) => String(src || PLACEHOLDER).replace(/^\/+/, "");
+  // Si una foto no carga, se muestra el marcador de posición.
+  document.addEventListener("error", (e) => {
+    const t = e.target;
+    if (t && t.tagName === "IMG" && !t.dataset.failed) {
+      t.dataset.failed = "1";
+      t.src = PLACEHOLDER;
+    }
+  }, true);
 
-  // Convierte una ruta relativa en URL pública completa (https://...) para que WhatsApp muestre la foto/link
-  const getSiteBaseUrl = () => window.location.origin + window.location.pathname.replace(/index\.html$/i, "");
-
-  function publicImageUrl(src) {
-    const clean = resolveImg(src);
-    if (clean.startsWith("data:")) return getSiteBaseUrl();
-    if (clean.startsWith("http")) return clean;
-    return encodeURI(getSiteBaseUrl() + clean);
+  /* ---------- Contadores de visitas (anónimos + localStorage) ---------- */
+  function hit(key) {
+    fetch(`${CONFIG.statsBase}/hit/${CONFIG.statsNamespace}/${key}`, { mode: "no-cors", keepalive: true, cache: "no-store" }).catch(() => {});
   }
 
-  function publicCapLink(name) {
-    const base = getSiteBaseUrl();
-    return base + "?gorra=" + encodeURIComponent(name) + "#catalogo";
-  }
-
-  function buildProductWaMessage(p) {
-    const baseMsg = CONFIG.productMessage.replace("{producto}", p.name);
-    const capUrl = publicCapLink(p.name);
-    return `${baseMsg}\nLink: ${capUrl}`;
-  }
-
-  // Minúsculas y sin tildes, para que "edicion" encuentre "Edición"
-  const normalize = (s) =>
-    String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-  // Registro de analíticas: intenta /api/stats y también guarda en localStorage para que funcione siempre
-  function trackEvent(type, product = null) {
+  function recordLocalEvent(event, product = null) {
     try {
       const KEY = "monarch_local_stats";
       const stats = JSON.parse(localStorage.getItem(KEY) || "null") || {
         totalVisits: 0, totalWhatsappClicks: 0, totalCartAdds: 0, totalOrderSends: 0,
         byDate: {}, byProduct: {}, recentEvents: []
       };
-      const today = new Date().toISOString().slice(0, 10);
+      const today = dayKey();
       if (!stats.byDate[today]) stats.byDate[today] = { visits: 0, wa: 0, cart: 0 };
-      if (type === "visit") { stats.totalVisits++; stats.byDate[today].visits++; }
-      else if (type === "wa") { stats.totalWhatsappClicks++; stats.byDate[today].wa++; }
-      else if (type === "cart") { stats.totalCartAdds++; stats.byDate[today].cart++; }
-      else if (type === "order") { stats.totalOrderSends++; stats.totalWhatsappClicks++; stats.byDate[today].wa++; }
+      if (event === "visit") { stats.totalVisits++; stats.byDate[today].visits++; }
+      else if (event === "wa") { stats.totalWhatsappClicks++; stats.byDate[today].wa++; }
+      else if (event === "cart") { stats.totalCartAdds++; stats.byDate[today].cart++; }
+      else if (event === "order") { stats.totalOrderSends++; stats.totalWhatsappClicks++; stats.byDate[today].wa++; }
       if (product) {
         if (!stats.byProduct[product]) stats.byProduct[product] = { views: 0, wa: 0, cart: 0 };
-        if (type === "view") stats.byProduct[product].views++;
-        if (type === "wa") stats.byProduct[product].wa++;
-        if (type === "cart") stats.byProduct[product].cart++;
+        if (event === "view") stats.byProduct[product].views++;
+        if (event === "wa") stats.byProduct[product].wa++;
+        if (event === "cart") stats.byProduct[product].cart++;
       }
-      stats.recentEvents = [{ ts: new Date().toISOString(), type, product }, ...(stats.recentEvents || [])].slice(0, 25);
+      stats.recentEvents = [{ ts: new Date().toISOString(), type: event, product }, ...(stats.recentEvents || [])].slice(0, 25);
       localStorage.setItem(KEY, JSON.stringify(stats));
-    } catch (e) {}
-    try {
-      fetch("/api/stats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, product }),
-        keepalive: true,
-      }).catch(() => {});
     } catch (e) {}
   }
 
-  const imgFallback = (root) =>
-    root.querySelectorAll("img[data-fallback]").forEach((img) =>
-      img.addEventListener("error", () => { img.src = PLACEHOLDER; }, { once: true })
-    );
+  function track(event, product) {
+    try {
+      recordLocalEvent(event, product);
+      if (navigator.webdriver || localStorage.getItem("monarch_admin_session")) return;
+      const keys = [];
+      if (event === "visit") keys.push("visits", `day-${dayKey()}`);
+      if (event === "wa") keys.push("whatsapp");
+      if (event === "cart") keys.push("cart-adds");
+      if (event === "order") keys.push("orders", "whatsapp");
+      if (product && (event === "view" || event === "wa" || event === "cart")) keys.push(`p-${slug(product)}`);
+      keys.forEach(hit);
+    } catch (e) { /* las estadísticas nunca deben romper la tienda */ }
+  }
 
   /* ---------- Animación de aparición ---------- */
-  const observer = "IntersectionObserver" in window
+  const revealObserver = "IntersectionObserver" in window
     ? new IntersectionObserver((entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            e.target.classList.add("visible");
-            observer.unobserve(e.target);
+        entries.forEach((en) => {
+          if (en.isIntersecting) {
+            en.target.classList.add("visible");
+            revealObserver.unobserve(en.target);
           }
         });
       }, { threshold: 0.12 })
@@ -104,57 +92,52 @@
 
   function observeReveals(root) {
     root.querySelectorAll(".reveal:not(.visible)").forEach((el) => {
-      observer ? observer.observe(el) : el.classList.add("visible");
+      revealObserver ? revealObserver.observe(el) : el.classList.add("visible");
     });
   }
 
-  /* ---------- Marca, WhatsApp general y redes ---------- */
+  /* ---------- Configuración (content/settings.json + localStorage instantáneo) ---------- */
   async function loadSettings() {
-    let custom = null;
+    let s = null;
     try {
-      custom = JSON.parse(localStorage.getItem("monarch_custom_settings") || "null");
+      s = JSON.parse(localStorage.getItem("monarch_custom_settings") || "null");
     } catch (e) {}
-    if (!custom) {
+    if (!s) {
       try {
         const res = await fetch("content/settings.json", { cache: "no-cache" });
-        if (res.ok) custom = await res.json();
+        if (res.ok) s = await res.json();
       } catch (e) {}
     }
-    if (custom) {
-      if (custom.brandName) CONFIG.brandName = custom.brandName;
-      if (custom.tagline) CONFIG.tagline = custom.tagline;
-      if (custom.whatsappNumber) CONFIG.whatsappNumber = String(custom.whatsappNumber).replace(/\D/g, "");
-      if (Array.isArray(custom.categories) && custom.categories.length) CONFIG.categories = custom.categories;
-      if (custom.social) CONFIG.social = { ...CONFIG.social, ...custom.social };
+    if (s && typeof s === "object") {
+      if (s.tagline) CONFIG.tagline = String(s.tagline);
+      const wa = String(s.whatsappNumber || "").replace(/\D/g, "");
+      if (wa.length >= 10) CONFIG.whatsappNumber = wa;
+      if (Array.isArray(s.categories) && s.categories.length) CONFIG.categories = s.categories.map(String);
+      if (s.social && typeof s.social === "object") CONFIG.social = { ...CONFIG.social, ...s.social };
     }
   }
 
   function applyConfig() {
     document.querySelectorAll("[data-brand]").forEach((el) => (el.textContent = CONFIG.brandName));
     document.querySelectorAll("[data-tagline]").forEach((el) => (el.textContent = CONFIG.tagline));
-    document.title = CONFIG.brandName + " | Catálogo de gorras streetwear";
+    document.title = `${CONFIG.brandName} | Catálogo de gorras streetwear`;
     document.querySelectorAll("[data-wa-general]").forEach((el) => (el.href = waLink(CONFIG.generalMessage)));
     document.querySelectorAll("[data-social]").forEach((el) => {
-      const url = CONFIG.social[el.dataset.social];
-      if (url && url.trim()) {
-        el.href = url.trim();
-        el.style.display = "";
-      } else {
-        el.style.display = "none";
-      }
+      const url = safeUrl(CONFIG.social[el.dataset.social]);
+      el.hidden = !url;
+      if (url) el.href = url;
     });
     $("year").textContent = new Date().getFullYear();
   }
 
   /* ---------- Catálogo ---------- */
   const grid = $("grid");
-  const empty = $("empty");
 
   function visibleProducts() {
     const q = normalize(state.q.trim());
-    let list = PRODUCTS.map((p, i) => ({ p, i })).filter(({ p }) => {
+    const list = PRODUCTS.map((p, i) => ({ p, i })).filter(({ p }) => {
       const okCat = state.cat === "Todas" || p.category === state.cat;
-      const okQ = !q || normalize(p.name + " " + p.description + " " + p.category).includes(q);
+      const okQ = !q || normalize(`${p.name} ${p.description} ${p.category}`).includes(q);
       return okCat && okQ;
     });
     if (state.sort === "price-asc") list.sort((a, b) => a.p.price - b.p.price);
@@ -163,71 +146,120 @@
     return list;
   }
 
+  function productMessage(p) {
+    return `${CONFIG.productMessage.replace("{producto}", p.name)}\nLink: ${capLink(p.name)}`;
+  }
+
   function cardHTML({ p, i }) {
-    const msg = buildProductWaMessage(p);
+    const name = escapeHTML(p.name);
     return `
       <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
         <article class="product-card reveal">
-          <button type="button" class="product-img" data-detail="${i}" aria-label="Ver detalle de ${escapeHTML(p.name)}">
-            <img src="${escapeHTML(resolveImg(p.image))}" alt="${escapeHTML(p.name)}" loading="lazy" data-fallback>
-            <span class="badge-cat">${escapeHTML(p.category)}</span>
+          <button type="button" class="product-media" data-detail="${i}" aria-label="Ver detalle de ${name}">
+            <img src="${escapeHTML(imgSrc(p.image))}" alt="${name}" width="600" height="750" loading="lazy" decoding="async">
+            <span class="chip">${escapeHTML(p.category)}</span>
+            <span class="media-cta"><i class="bi bi-eye"></i> Ver detalle</span>
           </button>
           <div class="product-body">
-            <h3><button type="button" class="title-link" data-detail="${i}">${escapeHTML(p.name)}</button></h3>
-            <span class="product-price">${formatPrice(p.price)}</span>
+            <h3 class="product-name"><button type="button" class="title-link" data-detail="${i}">${name}</button></h3>
+            <p class="product-price">${formatPrice(p.price)}</p>
             <p class="product-desc">${escapeHTML(p.description)}</p>
             <div class="card-actions">
-              <a class="btn btn-wa flex-grow-1" href="${waLink(msg)}" data-wa-product="${escapeHTML(p.name)}" target="_blank" rel="noopener">
-                <i class="bi bi-whatsapp"></i> Consultar
-              </a>
-              <button type="button" class="btn btn-outline-light btn-add" data-add="${i}" aria-label="Agregar ${escapeHTML(p.name)} a mi pedido" title="Agregar a mi pedido">
-                <i class="bi bi-bag-plus"></i>
-              </button>
+              <a class="btn btn-wa" href="${waLink(productMessage(p))}" data-wa-product="${i}" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp"></i> Consultar</a>
+              <button type="button" class="btn btn-add" data-add="${i}" aria-label="Agregar ${name} a mi pedido" title="Agregar a mi pedido"><i class="bi bi-bag-plus"></i></button>
             </div>
           </div>
         </article>
       </div>`;
   }
 
+  function renderSkeleton() {
+    grid.innerHTML = Array.from({ length: 4 }, () => `
+      <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+        <div class="skeleton-card"><div class="sk sk-img"></div><div class="sk sk-line"></div><div class="sk sk-line short"></div><div class="sk sk-line last"></div></div>
+      </div>`).join("");
+  }
+
   function renderProducts() {
     const list = visibleProducts();
     grid.innerHTML = list.map(cardHTML).join("");
-    imgFallback(grid);
-    empty.classList.toggle("d-none", list.length > 0);
-    $("resultCount").textContent = list.length + (list.length === 1 ? " gorra" : " gorras");
+    $("resultCount").textContent = `${list.length} ${list.length === 1 ? "gorra" : "gorras"}`;
+    const empty = list.length === 0;
+    $("empty").classList.toggle("d-none", !empty);
+    if (empty) {
+      $("emptyText").textContent = PRODUCTS.length ? "No encontramos gorras con ese filtro. Prueba con otra búsqueda." : "Pronto subiremos nuevas gorras. ¡Vuelve a visitarnos!";
+      $("btnClearFilters").hidden = !PRODUCTS.length;
+    }
     observeReveals(grid);
   }
 
   function renderFilters() {
-    const filters = $("filters");
-    const baseCats = Array.isArray(CONFIG.categories) && CONFIG.categories.length
-      ? CONFIG.categories
-      : ["Snapback", "Trucker", "Dad Hat", "Edición limitada"];
-    const cats = ["Todas", ...new Set([...baseCats, ...PRODUCTS.map((p) => p.category).filter(Boolean)])];
-    if (!cats.includes(state.cat)) state.cat = "Todas";
-    filters.innerHTML = cats
-      .map((c) => `<button type="button" class="filter-btn${c === state.cat ? " active" : ""}" data-cat="${escapeHTML(c)}">${escapeHTML(c)}</button>`)
-      .join("");
+    const counts = {};
+    PRODUCTS.forEach((p) => (counts[p.category] = (counts[p.category] || 0) + 1));
+    // Solo se muestran las categorías que tienen gorras.
+    const ordered = [
+      ...CONFIG.categories.filter((c) => counts[c]),
+      ...Object.keys(counts).filter((c) => !CONFIG.categories.includes(c)),
+    ];
+    if (state.cat !== "Todas" && !counts[state.cat]) state.cat = "Todas";
+    $("filters").innerHTML = ["Todas", ...ordered].map((c) => {
+      const active = c === state.cat;
+      const n = c === "Todas" ? PRODUCTS.length : counts[c];
+      return `<button type="button" class="filter-btn${active ? " active" : ""}" data-cat="${escapeHTML(c)}" aria-pressed="${active}">${escapeHTML(c)} <small>${n}</small></button>`;
+    }).join("");
+    $("statModels").textContent = PRODUCTS.length;
+    $("statCats").textContent = ordered.length;
+  }
+
+  async function loadProducts() {
+    try {
+      const localOverride = JSON.parse(localStorage.getItem("monarch_custom_products") || "null");
+      if (Array.isArray(localOverride)) {
+        PRODUCTS = localOverride.filter((p) => p && p.name).map((p) => ({
+          name: String(p.name).trim(),
+          price: Number(p.price) || 0,
+          category: String(p.category || "General"),
+          description: String(p.description || ""),
+          image: String(p.image || ""),
+        }));
+        return;
+      }
+    } catch (e) {}
+    try {
+      const res = await fetch("content/products.json", { cache: "no-cache" });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      PRODUCTS = (Array.isArray(data.products) ? data.products : [])
+        .filter((p) => p && p.name)
+        .map((p) => ({
+          name: String(p.name).trim(),
+          price: Number(p.price) || 0,
+          category: String(p.category || "General"),
+          description: String(p.description || ""),
+          image: String(p.image || ""),
+        }));
+    } catch (err) {
+      console.error("No se pudo cargar el catálogo:", err);
+      PRODUCTS = [];
+    }
   }
 
   /* ---------- Detalle de producto ---------- */
-  let modal, currentIndex = null;
-
   function openDetail(i) {
     const p = PRODUCTS[i];
     if (!p) return;
     currentIndex = i;
     const img = $("pmImg");
-    img.src = resolveImg(p.image);
+    img.dataset.failed = "";
+    img.src = imgSrc(p.image);
     img.alt = p.name;
-    img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER; };
     $("pmCat").textContent = p.category;
     $("pmName").textContent = p.name;
     $("pmPrice").textContent = formatPrice(p.price);
     $("pmDesc").textContent = p.description;
-    $("pmWa").href = waLink(buildProductWaMessage(p));
-    $("pmWa").dataset.waProduct = p.name;
-    trackEvent("view", p.name);
+    $("pmWa").href = waLink(productMessage(p));
+    $("pmWa").dataset.waProduct = i;
+    track("view", p.name);
     modal = modal || new bootstrap.Modal($("productModal"));
     modal.show();
   }
@@ -260,12 +292,19 @@
     cart[p.name] = (cart[p.name] || 0) + 1;
     saveCart();
     renderCart();
-    trackEvent("cart", p.name);
+    track("cart", p.name);
     const badge = $("cartCount");
     badge.classList.remove("bump");
     void badge.offsetWidth;
     badge.classList.add("bump");
-    showToast("Agregada: " + p.name);
+    showToast(`Agregada: ${p.name}`);
+  }
+
+  function changeQty(name, delta) {
+    cart[name] = (cart[name] || 0) + delta;
+    if (cart[name] <= 0) delete cart[name];
+    saveCart();
+    renderCart();
   }
 
   function renderCart() {
@@ -283,35 +322,29 @@
       return;
     }
 
-    box.innerHTML = lines.map(({ p, qty }) => `
-      <div class="cart-item">
-        <img src="${escapeHTML(resolveImg(p.image))}" alt="" data-fallback>
-        <div class="cart-item-info">
-          <div class="cart-item-name">${escapeHTML(p.name)}</div>
-          <div class="cart-item-price">${formatPrice(p.price)}</div>
-          <div class="qty">
-            <button type="button" data-qty="-1" data-name="${escapeHTML(p.name)}" aria-label="Quitar una">−</button>
-            <span>${qty}</span>
-            <button type="button" data-qty="1" data-name="${escapeHTML(p.name)}" aria-label="Agregar una">+</button>
+    box.innerHTML = lines.map(({ p, qty }) => {
+      const n = escapeHTML(p.name);
+      return `
+        <div class="cart-item">
+          <img src="${escapeHTML(imgSrc(p.image))}" alt="" width="64" height="64">
+          <div class="cart-item-info">
+            <div class="cart-item-name">${n}</div>
+            <div class="cart-item-price">${formatPrice(p.price)}</div>
+            <div class="qty">
+              <button type="button" data-qty="-1" data-name="${n}" aria-label="Quitar una">−</button>
+              <span>${qty}</span>
+              <button type="button" data-qty="1" data-name="${n}" aria-label="Agregar una">+</button>
+            </div>
           </div>
-        </div>
-        <button type="button" class="cart-remove" data-remove="${escapeHTML(p.name)}" aria-label="Eliminar ${escapeHTML(p.name)}"><i class="bi bi-trash"></i></button>
-      </div>`).join("");
-    imgFallback(box);
+          <button type="button" class="cart-remove" data-remove="${n}" aria-label="Eliminar ${n}"><i class="bi bi-trash"></i></button>
+        </div>`;
+    }).join("");
 
     $("cartTotal").textContent = formatPrice(total);
     $("cartFooter").classList.remove("d-none");
 
-    const items = lines.map(({ p, qty }) => `• ${qty} x ${p.name} (${formatPrice(p.price * qty)})\n  Link: ${publicCapLink(p.name)}`).join("\n\n");
-    const msg = `${CONFIG.orderIntro}\n\n${items}\n\nTotal: ${formatPrice(total)}\n\n${CONFIG.orderOutro}`;
-    $("cartSend").href = waLink(msg);
-  }
-
-  function changeQty(name, delta) {
-    cart[name] = (cart[name] || 0) + delta;
-    if (cart[name] <= 0) delete cart[name];
-    saveCart();
-    renderCart();
+    const items = lines.map(({ p, qty }) => `• ${qty} x ${p.name} (${formatPrice(p.price * qty)})\n  Link: ${capLink(p.name)}`).join("\n\n");
+    $("cartSend").href = waLink(`${CONFIG.orderIntro}\n\n${items}\n\nTotal: ${formatPrice(total)}\n\n${CONFIG.orderOutro}`);
   }
 
   /* ---------- Eventos ---------- */
@@ -327,16 +360,27 @@
     $("search").addEventListener("input", (e) => { state.q = e.target.value; renderProducts(); });
     $("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderProducts(); });
 
+    $("btnClearFilters").addEventListener("click", () => {
+      state.cat = "Todas";
+      state.q = "";
+      $("search").value = "";
+      renderFilters();
+      renderProducts();
+    });
+
     grid.addEventListener("click", (e) => {
       const add = e.target.closest("[data-add]");
       if (add) return addToCart(+add.dataset.add);
+      const wa = e.target.closest("[data-wa-product]");
+      if (wa) return track("wa", PRODUCTS[+wa.dataset.waProduct]?.name);
       const det = e.target.closest("[data-detail]");
       if (det) openDetail(+det.dataset.detail);
     });
 
-    $("pmAdd").addEventListener("click", () => {
-      if (currentIndex !== null) addToCart(currentIndex);
-    });
+    $("pmAdd").addEventListener("click", () => { if (currentIndex !== null) addToCart(currentIndex); });
+    $("pmWa").addEventListener("click", (e) => track("wa", PRODUCTS[+e.currentTarget.dataset.waProduct]?.name));
+    document.querySelectorAll("[data-wa-general]").forEach((el) => el.addEventListener("click", () => track("wa")));
+    $("cartSend").addEventListener("click", () => track("order"));
 
     $("cartItems").addEventListener("click", (e) => {
       const q = e.target.closest("[data-qty]");
@@ -344,68 +388,45 @@
       const r = e.target.closest("[data-remove]");
       if (r) changeQty(r.dataset.remove, -Infinity);
     });
-
     $("cartClear").addEventListener("click", () => { cart = {}; saveCart(); renderCart(); });
 
-    $("cartSend").addEventListener("click", () => trackEvent("order"));
-    $("pmWa").addEventListener("click", (e) => trackEvent("wa", e.currentTarget.dataset.waProduct || null));
-    document.querySelectorAll("[data-wa-general]").forEach((el) =>
-      el.addEventListener("click", () => trackEvent("wa", null))
-    );
-    grid.addEventListener("click", (e) => {
-      const wa = e.target.closest("[data-wa-product]");
-      if (wa) trackEvent("wa", wa.dataset.waProduct);
-    });
-
-    // Cerrar menú móvil al navegar
+    // Cerrar el menú móvil al navegar
     document.querySelectorAll(".navbar-nav a").forEach((a) =>
       a.addEventListener("click", () => {
         const menu = $("menu");
         if (menu.classList.contains("show")) bootstrap.Collapse.getInstance(menu)?.hide();
       })
     );
+
+    // Barra de navegación más sólida al hacer scroll
+    const nav = $("siteNav");
+    const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 24);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
   }
 
   /* ---------- Inicio ---------- */
-  // Los productos se editan desde /admin y se guardan en content/products.json (o en localStorage al instante)
-  async function loadProducts() {
-    try {
-      const localOverride = JSON.parse(localStorage.getItem("monarch_custom_products") || "null");
-      if (Array.isArray(localOverride)) {
-        PRODUCTS = localOverride;
-        return;
-      }
-    } catch (e) {}
-    try {
-      const res = await fetch("content/products.json", { cache: "no-cache" });
-      if (!res.ok) throw new Error(res.status);
-      PRODUCTS = (await res.json()).products || [];
-    } catch (err) {
-      console.error("No se pudo cargar el catálogo:", err);
-      PRODUCTS = [];
-    }
-  }
-
   async function init() {
-    await loadSettings();
-    applyConfig();
+    renderSkeleton();
     bindEvents();
-    if (!sessionStorage.getItem("monarch_visited")) {
-      sessionStorage.setItem("monarch_visited", "1");
-      trackEvent("visit");
-    }
-    await loadProducts();
+    observeReveals(document);
+    await Promise.all([loadSettings(), loadProducts()]);
+    applyConfig();
     renderFilters();
     renderProducts();
     renderCart();
-    observeReveals(document);
-    try {
-      const targetCap = new URLSearchParams(window.location.search).get("gorra");
-      if (targetCap) {
-        const idx = PRODUCTS.findIndex((p) => normalize(p.name) === normalize(targetCap));
-        if (idx !== -1) setTimeout(() => openDetail(idx), 250);
-      }
-    } catch (e) {}
+
+    if (!sessionStorage.getItem("monarch_visited")) {
+      try { sessionStorage.setItem("monarch_visited", "1"); } catch (e) { /* ignorar */ }
+      track("visit");
+    }
+
+    // Enlace directo a una gorra: ?gorra=Nombre
+    const target = new URLSearchParams(location.search).get("gorra");
+    if (target) {
+      const idx = PRODUCTS.findIndex((p) => normalize(p.name) === normalize(target));
+      if (idx !== -1) setTimeout(() => openDetail(idx), 250);
+    }
   }
   init();
 })();

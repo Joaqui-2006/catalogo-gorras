@@ -19,6 +19,13 @@
   const pendingImages = {};
 
   const $ = (id) => document.getElementById(id);
+  document.addEventListener("error", (e) => {
+    const t = e.target;
+    if (t && t.tagName === "IMG" && !t.dataset.failed) {
+      t.dataset.failed = "1";
+      t.src = PLACEHOLDER;
+    }
+  }, true);
 
   const escapeHTML = (s) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -62,7 +69,7 @@
 
       const prevBox = $("confirmModalPreview");
       if (previewImg) {
-        prevBox.innerHTML = `<img src="${escapeHTML(previewImg)}" alt="" class="confirm-preview-img" onerror="this.style.display='none'">`;
+        prevBox.innerHTML = `<img src="${escapeHTML(previewImg)}" alt="" class="confirm-preview-img">`;
         prevBox.classList.remove("d-none");
       } else {
         prevBox.innerHTML = "";
@@ -225,7 +232,7 @@
         <div class="cap-row" data-idx="${i}">
           <div class="d-flex flex-column flex-md-row gap-3 align-items-start">
             <div class="text-center">
-              <img src="${escapeHTML(previewSrc)}" alt="" class="cap-preview mb-2" data-preview="${i}" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">
+              <img src="${escapeHTML(previewSrc)}" alt="" class="cap-preview mb-2" data-preview="${i}">
               <div>
                 <label class="btn btn-outline-info btn-sm rounded-pill w-100" style="font-size:.78rem">
                   <i class="bi bi-camera-fill"></i> Cambiar foto
@@ -453,15 +460,53 @@
     }
   }
 
-  /* ---------- Estadísticas y Panel de Visitas ---------- */
-  async function loadStats() {
+    /* ---------- Estadísticas y Panel de Visitas (Abacus global + localStorage) ---------- */
+  async function fetchAbacusVal(key) {
     try {
-      const res = await fetch("/api/stats", { cache: "no-store" });
-      if (!res.ok) throw new Error(res.status);
-      const s = await res.json();
-      renderStats(s);
+      const base = (typeof CONFIG !== "undefined" && CONFIG.statsBase) || "https://abacus.jasoncameron.dev";
+      const ns = (typeof CONFIG !== "undefined" && CONFIG.statsNamespace) || "monarchstreet-4f9c2a";
+      const res = await fetch(`${base}/get/${ns}/${key}`, { cache: "no-store" });
+      if (!res.ok) return 0;
+      const d = await res.json();
+      return Number(d.value) || 0;
     } catch (e) {
-      renderStats(JSON.parse(localStorage.getItem("monarch_local_stats") || "null") || { totalVisits: 0, totalWhatsappClicks: 0, totalCartAdds: 0, totalOrderSends: 0, byDate: {}, byProduct: {}, recentEvents: [] });
+      return 0;
+    }
+  }
+
+  async function loadStats() {
+    const localStats = JSON.parse(localStorage.getItem("monarch_local_stats") || "null") || {
+      totalVisits: 0, totalWhatsappClicks: 0, totalCartAdds: 0, totalOrderSends: 0,
+      byDate: {}, byProduct: {}, recentEvents: []
+    };
+
+    try {
+      const [gVisits, gWa, gCart, gOrders] = await Promise.all([
+        fetchAbacusVal("visits"),
+        fetchAbacusVal("whatsapp"),
+        fetchAbacusVal("cart-adds"),
+        fetchAbacusVal("orders")
+      ]);
+
+      const merged = {
+        totalVisits: Math.max(localStats.totalVisits || 0, gVisits),
+        totalWhatsappClicks: Math.max(localStats.totalWhatsappClicks || 0, gWa),
+        totalCartAdds: Math.max(localStats.totalCartAdds || 0, gCart),
+        totalOrderSends: Math.max(localStats.totalOrderSends || 0, gOrders),
+        byDate: { ...(localStats.byDate || {}) },
+        byProduct: { ...(localStats.byProduct || {}) },
+        recentEvents: localStats.recentEvents || []
+      };
+
+      // Consultar solo el día de hoy para no saturar ni generar 404 en días pasados sin visitas
+      const todayKey = (typeof UTIL !== "undefined" && UTIL.dayKey) ? UTIL.dayKey() : new Date().toISOString().slice(0, 10);
+      const todayVal = await fetchAbacusVal(`day-${todayKey}`);
+      const localToday = (merged.byDate[todayKey] && merged.byDate[todayKey].visits) || 0;
+      merged.byDate[todayKey] = { ...(merged.byDate[todayKey] || {}), visits: Math.max(localToday, todayVal) };
+
+      renderStats(merged);
+    } catch (e) {
+      renderStats(localStats);
     }
   }
 
@@ -726,6 +771,22 @@
 
   /* ---------- Autenticación con Usuario y Contraseña (PBKDF2-SHA256 + Web Crypto) ---------- */
   const LOCAL_CREDS_KEY = "monarch_custom_creds";
+  const LOCKOUT_KEY = "monarch_login_lockout";
+  function getLockoutState() {
+    try { return JSON.parse(localStorage.getItem(LOCKOUT_KEY) || "null") || { fails: 0, until: 0 }; }
+    catch (e) { return { fails: 0, until: 0 }; }
+  }
+  function setLockoutState(st) {
+    try { localStorage.setItem(LOCKOUT_KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function timingSafeEqualHex(a, b) {
+    const sa = String(a || "");
+    const sb = String(b || "");
+    if (sa.length !== sb.length) return false;
+    let diff = 0;
+    for (let i = 0; i < sa.length; i++) diff |= sa.charCodeAt(i) ^ sb.charCodeAt(i);
+    return diff === 0;
+  }
 
   
   async function decryptVaultToken(password, cfg) {
@@ -832,14 +893,25 @@
       btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Verificando...`;
 
       try {
+        const lock = getLockoutState();
+        if (lock.until > Date.now()) {
+          const secs = Math.ceil((lock.until - Date.now()) / 1000);
+          throw new Error(`Demasiados intentos fallidos. Espera ${secs} segundos antes de volver a intentar.`);
+        }
         const cfg = await loadAuthConfig();
         const userIn = $("loginUser").value.trim();
         const passIn = $("loginPass").value;
         const hash = await pbkdf2Hex(passIn, cfg.salt, cfg.iterations || 60000);
+        const userOk = userIn.toLowerCase() === String(cfg.username).toLowerCase();
+        const passOk = timingSafeEqualHex(hash, cfg.passwordHash);
 
-        if (userIn.toLowerCase() !== String(cfg.username).toLowerCase() || hash !== cfg.passwordHash) {
-          throw new Error("Usuario o contraseña incorrectos.");
+        if (!userOk || !passOk) {
+          const fails = (lock.fails || 0) + 1;
+          const until = fails >= 5 ? Date.now() + 60000 : 0;
+          setLockoutState({ fails: until ? 0 : fails, until });
+          throw new Error(until ? "Demasiados intentos fallidos. Cuenta bloqueada por 60 segundos." : `Usuario o contraseña incorrectos (intento ${fails}/5).`);
         }
+        setLockoutState({ fails: 0, until: 0 });
 
         const sessionObj = {
           u: cfg.username,
