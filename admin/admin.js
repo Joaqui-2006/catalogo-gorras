@@ -434,6 +434,44 @@
   /* ---------- Autenticación con Usuario y Contraseña (PBKDF2-SHA256 + Web Crypto) ---------- */
   const LOCAL_CREDS_KEY = "monarch_custom_creds";
 
+  
+  async function decryptVaultToken(password, cfg) {
+    if (!cfg.encryptedGithubToken || !cfg.vaultSalt || !cfg.vaultIv) return "";
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+    const aesKey = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: enc.encode(cfg.vaultSalt), iterations: cfg.iterations || 60000, hash: "SHA-256" },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["decrypt"]
+    );
+    const iv = Uint8Array.from(atob(cfg.vaultIv), (c) => c.charCodeAt(0));
+    const cipherBytes = Uint8Array.from(atob(cfg.encryptedGithubToken), (c) => c.charCodeAt(0));
+    const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, cipherBytes);
+    return new TextDecoder().decode(plainBuf).trim();
+  }
+
+  async function encryptVaultToken(token, password, salt, iterations = 60000) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+    const aesKey = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: enc.encode(salt), iterations, hash: "SHA-256" },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt"]
+    );
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const cipherBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, enc.encode(token));
+    const b64 = (u8) => btoa(String.fromCharCode(...u8));
+    return {
+      vaultSalt: salt,
+      vaultIv: b64(iv),
+      encryptedGithubToken: b64(new Uint8Array(cipherBuf))
+    };
+  }
+
   async function pbkdf2Hex(password, salt, iterations = 60000) {
     const enc = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
@@ -514,6 +552,10 @@
           h: cfg.passwordHash,
           exp: Date.now() + 1000 * 60 * 60 * 24 * 7
         };
+        try {
+          const unlockedToken = await decryptVaultToken(passIn, cfg);
+          if (unlockedToken) localStorage.setItem(TOKEN_KEY, unlockedToken);
+        } catch (e) {}
         localStorage.setItem(SESSION_KEY, JSON.stringify(sessionObj));
         unlockAdminPanel(cfg.username);
       } catch (err) {
@@ -547,11 +589,17 @@
 
         const newSalt = "monarch_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
         const newHash = await pbkdf2Hex(newPassword, newSalt, 60000);
+        let activeToken = getToken();
+        if (!activeToken) {
+          try { activeToken = await decryptVaultToken($("currentAdminPass").value, cfg); } catch (e) {}
+        }
+        const vaultData = activeToken ? await encryptVaultToken(activeToken, newPassword, "vault_" + newSalt, 60000) : {};
         const updatedCfg = {
           username: newUsername,
           salt: newSalt,
           iterations: 60000,
-          passwordHash: newHash
+          passwordHash: newHash,
+          ...vaultData
         };
 
         localStorage.setItem(LOCAL_CREDS_KEY, JSON.stringify(updatedCfg));
