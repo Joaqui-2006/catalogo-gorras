@@ -27,6 +27,28 @@
   // Normaliza rutas de imagen para que funcionen igual en Netlify (/) y en GitHub Pages (/catalogo-gorras/)
   const resolveImg = (src) => String(src || PLACEHOLDER).replace(/^\/+/, "");
 
+  // Convierte una ruta relativa en URL pública completa (https://...) para que WhatsApp muestre la foto/link
+  const getSiteBaseUrl = () => window.location.origin + window.location.pathname.replace(/index\.html$/i, "");
+
+  function publicImageUrl(src) {
+    const clean = resolveImg(src);
+    if (clean.startsWith("data:")) return getSiteBaseUrl();
+    if (clean.startsWith("http")) return clean;
+    return encodeURI(getSiteBaseUrl() + clean);
+  }
+
+  function publicCapLink(name) {
+    const base = getSiteBaseUrl();
+    return base + "?gorra=" + encodeURIComponent(name) + "#catalogo";
+  }
+
+  function buildProductWaMessage(p) {
+    const baseMsg = CONFIG.productMessage.replace("{producto}", p.name);
+    const imgUrl = publicImageUrl(p.image);
+    const capUrl = publicCapLink(p.name);
+    return `${baseMsg}\n• Categoría: ${p.category}\n• Precio: ${formatPrice(p.price)}\n• Foto: ${imgUrl}\n• Ver gorra: ${capUrl}`;
+  }
+
   // Minúsculas y sin tildes, para que "edicion" encuentre "Edición"
   const normalize = (s) =>
     String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -142,7 +164,7 @@
   }
 
   function cardHTML({ p, i }) {
-    const msg = CONFIG.productMessage.replace("{producto}", p.name);
+    const msg = buildProductWaMessage(p);
     return `
       <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
         <article class="product-card reveal">
@@ -199,7 +221,7 @@
     $("pmName").textContent = p.name;
     $("pmPrice").textContent = formatPrice(p.price);
     $("pmDesc").textContent = p.description;
-    $("pmWa").href = waLink(CONFIG.productMessage.replace("{producto}", p.name));
+    $("pmWa").href = waLink(buildProductWaMessage(p));
     $("pmWa").dataset.waProduct = p.name;
     trackEvent("view", p.name);
     modal = modal || new bootstrap.Modal($("productModal"));
@@ -276,7 +298,7 @@
     $("cartTotal").textContent = formatPrice(total);
     $("cartFooter").classList.remove("d-none");
 
-    const items = lines.map(({ p, qty }) => `• ${qty} x ${p.name} (${formatPrice(p.price * qty)})`).join("\n");
+    const items = lines.map(({ p, qty }) => `• ${qty} x ${p.name} (${formatPrice(p.price * qty)})\n  Foto: ${publicImageUrl(p.image)}\n  Link: ${publicCapLink(p.name)}`).join("\n\n");
     const msg = `${CONFIG.orderIntro}\n\n${items}\n\nTotal: ${formatPrice(total)}\n\n${CONFIG.orderOutro}`;
     $("cartSend").href = waLink(msg);
   }
@@ -373,6 +395,13 @@
     renderProducts();
     renderCart();
     observeReveals(document);
+    try {
+      const targetCap = new URLSearchParams(window.location.search).get("gorra");
+      if (targetCap) {
+        const idx = PRODUCTS.findIndex((p) => normalize(p.name) === normalize(targetCap));
+        if (idx !== -1) setTimeout(() => openDetail(idx), 250);
+      }
+    } catch (e) {}
   }
   init();
 })();
