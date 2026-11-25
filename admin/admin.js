@@ -543,10 +543,21 @@
       const del = e.target.closest("[data-del]");
       if (del) {
         const idx = Number(del.dataset.del);
-        if (confirm(`¿Eliminar la gorra «${products[idx].name}»?`)) {
+        const cap = products[idx];
+        if (!cap) return;
+        const previewSrc = pendingImages[idx] ? pendingImages[idx].dataUrl : resolveAdminImg(cap.image);
+        askConfirm({
+          title: "Eliminar gorra",
+          text: `¿Seguro que deseas eliminar la gorra <strong class="text-light">«${escapeHTML(cap.name)}»</strong> del catálogo?`,
+          confirmText: "Sí, eliminar gorra",
+          previewImg: previewSrc
+        }).then((ok) => {
+          if (!ok) return;
           products.splice(idx, 1);
+          localStorage.setItem("monarch_custom_products", JSON.stringify(products));
           renderCaps();
-        }
+          showAlert(`Gorra <strong>«${escapeHTML(cap.name)}»</strong> eliminada. Pulsa <strong>Guardar y publicar cambios</strong> para actualizar la tienda.`, "warning");
+        });
         return;
       }
       const move = e.target.closest("[data-move]");
