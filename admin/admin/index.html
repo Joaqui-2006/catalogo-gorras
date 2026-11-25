@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Panel Administrador | Monarch Street</title>
+  <link rel="icon" href="../assets/img/logo.jpg">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.github.com https://abacus.jasoncameron.dev; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #181818;
+      --surface-2: #222;
+      --text: #f2f0eb;
+      --muted: #9a9892;
+      --accent: #2b5cff;
+      --accent-text: #6f95ff;
+      --glow: rgba(43, 92, 255, .45);
+      --wa: #25D366;
+      --radius: 14px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: "Inter", system-ui, sans-serif; min-height: 100vh; }
+    h1, h2, h3, .brand, .kpi-value { font-family: "Bebas Neue", Impact, sans-serif; letter-spacing: .05em; text-transform: uppercase; font-weight: 400; }
+    .admin-nav { background: rgba(13, 13, 13, .88); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255, 255, 255, .08); }
+    .nav-logo { height: 38px; width: 38px; object-fit: cover; border-radius: 8px; }
+    .brand { font-size: 1.65rem; color: var(--text); text-decoration: none; }
+    .panel-card { background: var(--surface); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius); padding: 1.35rem; height: 100%; }
+    .kpi-card { background: var(--surface); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius); padding: 1.25rem; position: relative; overflow: hidden; }
+    .kpi-card::after { content: ""; position: absolute; inset: auto 0 0 0; height: 3px; background: var(--accent); }
+    .kpi-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 1.3rem; background: rgba(43,92,255,.15); color: var(--accent-text); }
+    .kpi-value { font-size: 2.6rem; line-height: 1; margin-top: .6rem; }
+    .kpi-label { color: var(--muted); font-size: .85rem; }
+    .nav-pills .nav-link { color: var(--text); border-radius: 50px; padding: .55rem 1.2rem; font-weight: 500; border: 1px solid #333; margin-right: .5rem; }
+    .nav-pills .nav-link.active { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 18px var(--glow); }
+    .cap-row { background: var(--surface); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; transition: border-color .25s; }
+    .cap-row:hover { border-color: rgba(43,92,255,.5); }
+    .cap-preview { width: 110px; height: 110px; border-radius: 12px; object-fit: cover; background: var(--surface-2); border: 1px solid rgba(255,255,255,.08); flex-shrink: 0; }
+    .form-control, .form-select { background: var(--surface-2); border: 1px solid #333; color: var(--text); }
+    .form-control:focus, .form-select:focus { background: var(--surface-2); color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 .2rem var(--glow); }
+    .btn-accent { background: var(--accent); color: #fff; border: 0; border-radius: 50px; font-weight: 600; }
+    .btn-accent:hover { background: #4a74ff; color: #fff; box-shadow: 0 6px 22px var(--glow); }
+    .bar-track { background: var(--surface-2); border-radius: 50px; height: 10px; overflow: hidden; }
+    .bar-fill { background: linear-gradient(90deg, var(--accent), var(--accent-text)); height: 100%; border-radius: 50px; }
+    .day-bars { display: flex; align-items: flex-end; gap: .6rem; height: 150px; padding-top: 1rem; }
+    .day-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .35rem; height: 100%; justify-content: flex-end; }
+    .day-bar { width: 100%; max-width: 38px; background: linear-gradient(180deg, var(--accent-text), var(--accent)); border-radius: 8px 8px 3px 3px; min-height: 4px; transition: height .4s; }
+    .day-lbl { font-size: .72rem; color: var(--muted); }
+    .day-num { font-size: .78rem; font-weight: 600; color: var(--text); }
+    .status-pill { font-size: .78rem; padding: .3rem .75rem; border-radius: 50px; }
+    .login-screen { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; background: radial-gradient(circle at 50% 25%, #0a1233, var(--bg) 65%); }
+    .login-card { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid rgba(43,92,255,.35); border-radius: 18px; padding: 2.2rem 2rem; box-shadow: 0 22px 50px rgba(0,0,0,.7), 0 0 36px rgba(43,92,255,.22); }
+    .login-logo { width: 84px; height: 84px; border-radius: 16px; object-fit: cover; border: 1px solid rgba(255,255,255,.12); }
+    .confirm-modal-content { background: #14161d; border: 1px solid rgba(43,92,255,.45); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.85), 0 0 36px rgba(43,92,255,.25); overflow: hidden; }
+    .confirm-icon-wrap { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-size: 1.65rem; background: rgba(255, 77, 94, .14); color: #ff4d5e; border: 1px solid rgba(255, 77, 94, .35); margin: 0 auto 1rem; }
+    .confirm-icon-wrap.variant-success { background: rgba(43, 92, 255, .18); color: #6f95ff; border-color: rgba(43, 92, 255, .5); box-shadow: 0 0 20px rgba(43, 92, 255, .3); }
+    .confirm-icon-wrap.variant-warning { background: rgba(255, 193, 7, .14); color: #ffc107; border-color: rgba(255, 193, 7, .4); }
+    .confirm-preview-img { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; border: 1px solid rgba(255,255,255,.12); }
+    .btn-danger-glow { background: #e63946; color: #fff; border: 0; border-radius: 50px; font-weight: 600; transition: all .2s; }
+    .btn-danger-glow:hover { background: #ff4d5a; color: #fff; box-shadow: 0 6px 22px rgba(230, 57, 70, .45); transform: translateY(-1px); }
+  </style>
+</head>
+<body>
+
+  <!-- ================= PANTALLA DE INICIO DE SESIÓN (BLOQUEO DE SEGURIDAD) ================= -->
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="text-center mb-4">
+        <img src="../assets/img/logo.jpg" alt="Monarch Street" class="login-logo mb-3">
+        <h1 class="h2 mb-1">Monarch Street</h1>
+        <p class="text-secondary small mb-0"><i class="bi bi-shield-lock-fill text-primary me-1"></i> Acceso exclusivo para el administrador</p>
+      </div>
+
+      <div id="loginError" class="alert alert-danger py-2 small d-none" role="alert"></div>
+
+      <form id="loginForm" autocomplete="on">
+        <div class="mb-3">
+          <label for="loginUser" class="form-label small text-secondary">Usuario</label>
+          <div class="input-group">
+            <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-person-fill"></i></span>
+            <input id="loginUser" type="text" class="form-control" placeholder="Tu usuario" required autocomplete="username">
+          </div>
+        </div>
+        <div class="mb-4">
+          <label for="loginPass" class="form-label small text-secondary">Contraseña</label>
+          <div class="input-group">
+            <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-lock-fill"></i></span>
+            <input id="loginPass" type="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+            <button id="btnToggleLoginPass" class="btn btn-outline-secondary" type="button" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+          </div>
+        </div>
+        <button id="btnLoginSubmit" type="submit" class="btn btn-accent w-100 py-2 mb-3">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión
+        </button>
+        <div class="text-center">
+          <a href="../" class="small text-secondary text-decoration-none"><i class="bi bi-arrow-left"></i> Volver al catálogo público</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ================= APLICACIÓN DEL PANEL (OCULTA HASTA AUTENTICAR) ================= -->
+  <div id="adminApp" class="d-none">
+
+  <!-- Barra superior -->
+  <nav class="navbar admin-nav sticky-top py-2">
+    <div class="container d-flex align-items-center justify-content-between">
+      <a class="brand d-flex align-items-center gap-2" href="../">
+        <img src="../assets/img/logo.jpg" alt="" class="nav-logo">
+        <span>MONARCH STREET · ADMIN</span>
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <span id="userBadge" class="status-pill bg-primary bg-opacity-25 text-info d-none d-sm-inline"><i class="bi bi-person-check-fill me-1"></i>admin</span>
+        <span id="authBadge" class="status-pill bg-secondary bg-opacity-25 text-secondary">Sin conectar</span>
+        <a href="../" target="_blank" class="btn btn-outline-light btn-sm rounded-pill"><i class="bi bi-box-arrow-up-right"></i> Ver tienda</a>
+        <button id="btnLogout" type="button" class="btn btn-outline-danger btn-sm rounded-pill" title="Cerrar sesión"><i class="bi bi-box-arrow-right"></i> Salir</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-4">
+
+    <!-- Pestañas principales -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <ul class="nav nav-pills" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tabCatalogo" type="button" role="tab">
+            <i class="bi bi-grid-fill me-1"></i> Gorras e Imágenes
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tabVisitas" type="button" role="tab" id="btnTabVisitas">
+            <i class="bi bi-bar-chart-fill me-1"></i> Panel de Visitas y Estadísticas
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tabAcceso" type="button" role="tab">
+            <i class="bi bi-shield-lock-fill me-1"></i> Seguridad y Cuenta
+          </button>
+        </li>
+      </ul>
+
+      <div class="d-flex gap-2">
+        <button id="btnAddCap" type="button" class="btn btn-outline-light rounded-pill">
+          <i class="bi bi-plus-lg"></i> Nueva gorra
+        </button>
+        <button id="btnSaveAll" type="button" class="btn btn-accent px-4">
+          <i class="bi bi-cloud-arrow-up-fill me-1"></i> Guardar y publicar cambios
+        </button>
+      </div>
+    </div>
+
+    <!-- Alerta de estado -->
+    <div id="alertBox" class="alert d-none" role="alert"></div>
+
+    <div class="tab-content">
+
+      <!-- ================= TAB 1: CATÁLOGO E IMÁGENES ================= -->
+      <div class="tab-pane fade show active" id="tabCatalogo" role="tabpanel">
+                <div class="panel-card mb-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+              <h2 class="h4 mb-1">Administrar gorras, fotografías y categorías</h2>
+              <p class="text-secondary small mb-0">Agrega o elimina categorías del catálogo y sube las fotos de tus gorras. Al terminar pulsa <strong>Guardar y publicar cambios</strong>.</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span id="capCounter" class="badge bg-primary bg-opacity-25 text-light fs-6 rounded-pill px-3 py-2">0 gorras</span>
+            </div>
+          </div>
+
+          <!-- Gestor de Categorías (Agregar y Eliminar) -->
+          <div class="p-3 rounded-3" style="background:var(--surface-2);border:1px solid rgba(255,255,255,.06)">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-6">
+                <label for="newCategoryInput" class="form-label small fw-semibold mb-1"><i class="bi bi-plus-circle-fill text-primary me-1"></i> Agregar nueva categoría</label>
+                <div class="input-group input-group-sm">
+                  <input id="newCategoryInput" type="text" class="form-control" placeholder="Ej. Beanie, Gorra Plana, Urbana...">
+                  <button id="btnAddCategory" class="btn btn-accent px-3" type="button"><i class="bi bi-plus-lg"></i> Agregar categoría</button>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label for="deleteCategorySelect" class="form-label small fw-semibold mb-1"><i class="bi bi-trash3-fill text-danger me-1"></i> Seleccionar categoría a eliminar</label>
+                <div class="input-group input-group-sm">
+                  <select id="deleteCategorySelect" class="form-select"></select>
+                  <button id="btnDeleteCategory" class="btn btn-outline-danger px-3" type="button"><i class="bi bi-trash"></i> Eliminar categoría</button>
+                </div>
+              </div>
+            </div>
+            <div id="categoriesPills" class="d-flex flex-wrap gap-2 pt-3"></div>
+          </div>
+        </div>
+
+        <div id="capsList"></div>
+      </div>
+
+      
+      <!-- ================= TAB REDES Y WHATSAPP ================= -->
+      <div class="tab-pane fade" id="tabRedes" role="tabpanel">
+        <div class="panel-card" style="max-width:720px">
+          <h2 class="h4 mb-1"><i class="bi bi-whatsapp text-success me-1"></i> WhatsApp y Redes Sociales</h2>
+          <p class="text-secondary small mb-4">Cambia aquí el número de WhatsApp al que llegan los pedidos y pega los enlaces de tus redes sociales. Si dejas una red social vacía, su ícono se ocultará automáticamente en la tienda.</p>
+
+          <form id="socialForm">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="setWhatsapp" class="form-label small"><i class="bi bi-whatsapp text-success me-1"></i> Número de WhatsApp (con indicativo 57)</label>
+                <input id="setWhatsapp" type="text" class="form-control" placeholder="573156994134" required>
+                <div class="form-text text-secondary" style="font-size:.75rem">Ejemplo para Colombia: <code>573156994134</code> (sin + ni espacios).</div>
+              </div>
+
+              <div class="col-md-6">
+                <label for="setTagline" class="form-label small"><i class="bi bi-stars text-primary me-1"></i> Lema del banner principal</label>
+                <input id="setTagline" type="text" class="form-control" placeholder="More than caps">
+              </div>
+
+              <div class="col-12">
+                <label for="setInstagram" class="form-label small"><i class="bi bi-instagram text-info me-1"></i> Enlace de Instagram</label>
+                <input id="setInstagram" type="url" class="form-control" placeholder="https://www.instagram.com/tu_cuenta">
+              </div>
+
+              <div class="col-12">
+                <label for="setTiktok" class="form-label small"><i class="bi bi-tiktok text-info me-1"></i> Enlace de TikTok</label>
+                <input id="setTiktok" type="url" class="form-control" placeholder="https://www.tiktok.com/@tu_cuenta">
+              </div>
+
+              <div class="col-12">
+                <label for="setFacebook" class="form-label small"><i class="bi bi-facebook text-info me-1"></i> Enlace de Facebook</label>
+                <input id="setFacebook" type="url" class="form-control" placeholder="https://www.facebook.com/tu_pagina">
+              </div>
+
+              <div class="col-12 pt-2">
+                <button id="btnSaveSocial" type="submit" class="btn btn-accent px-4">
+                  <i class="bi bi-cloud-arrow-up-fill me-1"></i> Guardar WhatsApp y Redes Sociales
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ================= TAB 2: PANEL DE VISITAS ================= -->
+      <div class="tab-pane fade" id="tabVisitas" role="tabpanel">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+          <div>
+            <h2 class="h3 mb-0">Panel de Visitas y Rendimiento</h2>
+            <p class="text-secondary small mb-0">Métricas globales de visitantes (servicio externo) y gorras más consultadas.</p>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="btnRefreshStats" class="btn btn-outline-light btn-sm rounded-pill"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+            <button id="btnResetStats" class="btn btn-outline-danger btn-sm rounded-pill"><i class="bi bi-trash"></i> Borrar datos locales</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-lg-3">
+            <div class="kpi-card">
+              <div class="kpi-icon"><i class="bi bi-eye-fill"></i></div>
+              <div class="kpi-value" id="kpiVisits">0</div>
+              <div class="kpi-label">Visitas totales a la web</div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="kpi-card">
+              <div class="kpi-icon" style="color:#25D366;background:rgba(37,211,102,.14)"><i class="bi bi-whatsapp"></i></div>
+              <div class="kpi-value" id="kpiWa">0</div>
+              <div class="kpi-label">Consultas a WhatsApp</div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="kpi-card">
+              <div class="kpi-icon"><i class="bi bi-bag-plus-fill"></i></div>
+              <div class="kpi-value" id="kpiCart">0</div>
+              <div class="kpi-label">Gorras agregadas al pedido</div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="kpi-card">
+              <div class="kpi-icon"><i class="bi bi-send-check-fill"></i></div>
+              <div class="kpi-value" id="kpiOrders">0</div>
+              <div class="kpi-label">Pedidos completos enviados</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <!-- Gráfico de los últimos 7 días -->
+          <div class="col-lg-6">
+            <div class="panel-card">
+              <h3 class="h5 mb-1">Visitas en los últimos 7 días</h3>
+              <p class="text-secondary small mb-2">Actividad diaria registrada en el catálogo</p>
+              <div id="chart7Days" class="day-bars"></div>
+            </div>
+          </div>
+
+          <!-- Ranking de gorras más populares -->
+          <div class="col-lg-6">
+            <div class="panel-card">
+              <h3 class="h5 mb-1">Gorras con más interés</h3>
+              <p class="text-secondary small mb-3">Interacciones de todos los visitantes: detalle, WhatsApp y pedido</p>
+              <div id="topProducts"></div>
+            </div>
+          </div>
+
+          <!-- Actividad reciente -->
+          <div class="col-12">
+            <div class="panel-card">
+              <h3 class="h5 mb-3">Actividad reciente (solo de este navegador)</h3>
+              <div class="table-responsive">
+                <table class="table table-dark table-sm align-middle mb-0">
+                  <thead>
+                    <tr class="text-secondary small">
+                      <th>Fecha y hora</th>
+                      <th>Acción</th>
+                      <th>Gorra</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB 3: SEGURIDAD Y CUENTA ================= -->
+      <div class="tab-pane fade" id="tabAcceso" role="tabpanel">
+        <div class="panel-card" style="max-width:560px">
+          <h2 class="h4 mb-2"><i class="bi bi-person-lock me-1 text-primary"></i> Cambiar usuario y contraseña</h2>
+          <p class="text-secondary small">Actualiza el usuario y la contraseña con los que entras a este panel. Necesitas haber guardado antes tu llave de publicación (más abajo).</p>
+          <form id="changeCredsForm">
+            <div class="mb-3">
+              <label for="newAdminUser" class="form-label small">Nuevo usuario</label>
+              <input id="newAdminUser" type="text" class="form-control" required minlength="3">
+            </div>
+            <div class="mb-3">
+              <label for="currentAdminPass" class="form-label small">Contraseña actual</label>
+              <input id="currentAdminPass" type="password" class="form-control" placeholder="Tu contraseña actual" required>
+            </div>
+            <div class="mb-3">
+              <label for="newAdminPass" class="form-label small">Nueva contraseña (mínimo 14 caracteres, usa una frase larga)</label>
+              <input id="newAdminPass" type="password" class="form-control" placeholder="Nueva contraseña segura" required minlength="14" autocomplete="new-password">
+            </div>
+            <button id="btnChangeCreds" type="submit" class="btn btn-accent px-4">
+              <i class="bi bi-check2-circle me-1"></i> Actualizar usuario y contraseña
+            </button>
+          </form>
+        </div>
+
+        <div class="panel-card mt-4" style="max-width:560px">
+          <h2 class="h4 mb-2"><i class="bi bi-key-fill me-1 text-primary"></i> Llave de publicación (token de GitHub)</h2>
+          <p class="text-secondary small">Para publicar cambios necesitas un token de GitHub: <em>Settings → Developer settings → Personal access tokens → Fine-grained</em>, solo para el repositorio <code>catalogo-gorras</code> y con el permiso <strong>Contents: Read and write</strong>. Se guarda únicamente mientras esta pestaña esté abierta y <strong>nunca se sube al repositorio</strong>.</p>
+          <div class="input-group mb-2">
+            <input id="ghToken" type="password" class="form-control" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+            <button id="btnToggleToken" class="btn btn-outline-light" type="button" aria-label="Mostrar u ocultar token"><i class="bi bi-eye"></i></button>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="btnSaveToken" type="button" class="btn btn-accent px-4"><i class="bi bi-check2-circle me-1"></i> Guardar llave</button>
+            <button id="btnClearToken" type="button" class="btn btn-outline-danger"><i class="bi bi-x-circle me-1"></i> Quitar</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+  </div><!-- /#adminApp -->
+
+  <!-- ================= MODAL DE CONFIRMACIÓN PERSONALIZADO MONARCH STREET ================= -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+      <div class="modal-content confirm-modal-content p-4 text-center">
+        <div class="confirm-icon-wrap">
+          <i id="confirmModalIcon" class="bi bi-trash3-fill"></i>
+        </div>
+        <h3 id="confirmModalTitle" class="h3 mb-2">¿Confirmar eliminación?</h3>
+        <div id="confirmModalPreview" class="d-none my-2"></div>
+        <p id="confirmModalText" class="text-secondary small mb-4"></p>
+        <div class="d-flex gap-2 justify-content-center">
+          <button type="button" id="confirmModalCancel" class="btn btn-outline-light rounded-pill px-4 flex-grow-1" data-bs-dismiss="modal">
+            Cancelar
+          </button>
+          <button type="button" id="confirmModalOk" class="btn btn-danger-glow px-4 flex-grow-1">
+            <i class="bi bi-trash3-fill me-1"></i> Sí, eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="../js/shared.js"></script>
+  <script src="admin.js?v=5"></script>
+</body>
+</html>
