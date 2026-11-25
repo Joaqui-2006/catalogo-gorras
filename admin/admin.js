@@ -91,6 +91,13 @@
   /* ---------- Administrar Categorías / Catálogos ---------- */
   function renderCategories() {
     const box = $("categoriesPills");
+    const sel = $("deleteCategorySelect");
+    if (sel) {
+      sel.innerHTML = categories.map((cat, idx) => {
+        const count = products.filter((p) => p.category === cat).length;
+        return `<option value="${idx}">${escapeHTML(cat)} (${count} ${count === 1 ? "gorra" : "gorras"})</option>`;
+      }).join("");
+    }
     if (!box) return;
     if (!categories.length) {
       box.innerHTML = '<span class="small text-secondary">No hay categorías creadas. Agrega una arriba.</span>';
@@ -104,6 +111,26 @@
           <button type="button" class="btn-close btn-close-white" style="font-size:.55rem" data-del-cat="${idx}" title="Eliminar categoría «${escapeHTML(cat)}»"></button>
         </span>`;
     }).join("");
+  }
+
+  function removeCategoryByIndex(idx) {
+    const catName = categories[idx];
+    if (!catName) return;
+    const inUse = products.filter((p) => p.category === catName).length;
+    const msg = inUse > 0
+      ? `¿Eliminar la categoría «${catName}» y sus ${inUse} gorra(s)?`
+      : `¿Eliminar la categoría «${catName}»?`;
+    if (!confirm(msg)) return;
+    if (inUse > 0) {
+      products = products.filter((p) => p.category !== catName);
+    }
+    categories.splice(idx, 1);
+    if (!categories.length) categories.push("General");
+    siteSettings.categories = categories;
+    localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
+    localStorage.setItem("monarch_custom_products", JSON.stringify(products));
+    renderCaps();
+    showAlert(`Categoría <strong>«${escapeHTML(catName)}»</strong> eliminada. Pulsa <strong>Guardar y publicar cambios</strong> para actualizar la tienda.`, "warning");
   }
 
   /* ---------- Renderizar lista de gorras ---------- */
@@ -508,35 +535,15 @@
       $("categoriesPills").addEventListener("click", (e) => {
         const btn = e.target.closest("[data-del-cat]");
         if (!btn) return;
-        const idx = Number(btn.dataset.delCat);
-        const catName = categories[idx];
-        if (!catName) return;
-        const inUse = products.filter((p) => p.category === catName).length;
-        const msg = inUse > 0
-          ? `La categoría «${catName}» tiene ${inUse} gorra(s).
-
-¿Quieres eliminar también las ${inUse} gorra(s) de esta categoría? (Aceptar = eliminar categoría y sus gorras / Cancelar = no hacer nada)`
-          : `¿Eliminar la categoría / catálogo «${catName}»?`;
-        if (!confirm(msg)) return;
-        if (inUse > 0) {
-          products = products.filter((p) => p.category !== catName);
-        }
-        categories.splice(idx, 1);
-        if (!categories.length) categories.push("General");
-        siteSettings.categories = categories;
-        localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
-        renderCaps();
-        showAlert(`Categoría <strong>«${escapeHTML(catName)}»</strong> eliminada. Pulsa <strong>Guardar y publicar cambios</strong> para confirmar en la web.`, "warning");
+        removeCategoryByIndex(Number(btn.dataset.delCat));
       });
     }
 
-    if ($("btnClearCatalog")) {
-      $("btnClearCatalog").addEventListener("click", () => {
-        if (!products.length) return;
-        if (!confirm("¿Estás seguro de eliminar TODAS las gorras del catálogo para empezar desde cero?")) return;
-        products = [];
-        renderCaps();
-        showAlert("Se vació el catálogo. Pulsa <strong>Guardar y publicar cambios</strong> para aplicar o agrega nuevas gorras.", "warning");
+    if ($("btnDeleteCategory")) {
+      $("btnDeleteCategory").addEventListener("click", () => {
+        const sel = $("deleteCategorySelect");
+        if (!sel || sel.value === "") return;
+        removeCategoryByIndex(Number(sel.value));
       });
     }
 
