@@ -7,8 +7,8 @@ const CONFIG = {
   tagline: "More than caps",
 
   // Número de WhatsApp con indicativo de país, SIN "+" ni espacios.
-  // Colombia = 57. ¡NÚMERO DE PRUEBA! Reemplázalo por el real.
-  whatsappNumber: "573000000000",
+  // Colombia = 57.
+  whatsappNumber: "573156994134",
 
   // Mensajes ({producto} se reemplaza automáticamente por el nombre de la gorra)
   productMessage: "Hola, me interesa la gorra «{producto}». ¿Está disponible?",
