@@ -167,6 +167,51 @@
         <div id="capsList"></div>
       </div>
 
+      
+      <!-- ================= TAB REDES Y WHATSAPP ================= -->
+      <div class="tab-pane fade" id="tabRedes" role="tabpanel">
+        <div class="panel-card" style="max-width:720px">
+          <h2 class="h4 mb-1"><i class="bi bi-whatsapp text-success me-1"></i> WhatsApp y Redes Sociales</h2>
+          <p class="text-secondary small mb-4">Cambia aquí el número de WhatsApp al que llegan los pedidos y pega los enlaces de tus redes sociales. Si dejas una red social vacía, su ícono se ocultará automáticamente en la tienda.</p>
+
+          <form id="socialForm">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="setWhatsapp" class="form-label small"><i class="bi bi-whatsapp text-success me-1"></i> Número de WhatsApp (con indicativo 57)</label>
+                <input id="setWhatsapp" type="text" class="form-control" placeholder="573156994134" required>
+                <div class="form-text text-secondary" style="font-size:.75rem">Ejemplo para Colombia: <code>573156994134</code> (sin + ni espacios).</div>
+              </div>
+
+              <div class="col-md-6">
+                <label for="setTagline" class="form-label small"><i class="bi bi-stars text-primary me-1"></i> Lema del banner principal</label>
+                <input id="setTagline" type="text" class="form-control" placeholder="More than caps">
+              </div>
+
+              <div class="col-12">
+                <label for="setInstagram" class="form-label small"><i class="bi bi-instagram text-info me-1"></i> Enlace de Instagram</label>
+                <input id="setInstagram" type="url" class="form-control" placeholder="https://www.instagram.com/tu_cuenta">
+              </div>
+
+              <div class="col-12">
+                <label for="setTiktok" class="form-label small"><i class="bi bi-tiktok text-info me-1"></i> Enlace de TikTok</label>
+                <input id="setTiktok" type="url" class="form-control" placeholder="https://www.tiktok.com/@tu_cuenta">
+              </div>
+
+              <div class="col-12">
+                <label for="setFacebook" class="form-label small"><i class="bi bi-facebook text-info me-1"></i> Enlace de Facebook</label>
+                <input id="setFacebook" type="url" class="form-control" placeholder="https://www.facebook.com/tu_pagina">
+              </div>
+
+              <div class="col-12 pt-2">
+                <button id="btnSaveSocial" type="submit" class="btn btn-accent px-4">
+                  <i class="bi bi-cloud-arrow-up-fill me-1"></i> Guardar WhatsApp y Redes Sociales
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- ================= TAB 2: PANEL DE VISITAS ================= -->
       <div class="tab-pane fade" id="tabVisitas" role="tabpanel">
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">

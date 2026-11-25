@@ -88,6 +88,25 @@
   }
 
   /* ---------- Marca, WhatsApp general y redes ---------- */
+  async function loadSettings() {
+    let custom = null;
+    try {
+      custom = JSON.parse(localStorage.getItem("monarch_custom_settings") || "null");
+    } catch (e) {}
+    if (!custom) {
+      try {
+        const res = await fetch("content/settings.json", { cache: "no-cache" });
+        if (res.ok) custom = await res.json();
+      } catch (e) {}
+    }
+    if (custom) {
+      if (custom.brandName) CONFIG.brandName = custom.brandName;
+      if (custom.tagline) CONFIG.tagline = custom.tagline;
+      if (custom.whatsappNumber) CONFIG.whatsappNumber = String(custom.whatsappNumber).replace(/\D/g, "");
+      if (custom.social) CONFIG.social = { ...CONFIG.social, ...custom.social };
+    }
+  }
+
   function applyConfig() {
     document.querySelectorAll("[data-brand]").forEach((el) => (el.textContent = CONFIG.brandName));
     document.querySelectorAll("[data-tagline]").forEach((el) => (el.textContent = CONFIG.tagline));
@@ -95,7 +114,12 @@
     document.querySelectorAll("[data-wa-general]").forEach((el) => (el.href = waLink(CONFIG.generalMessage)));
     document.querySelectorAll("[data-social]").forEach((el) => {
       const url = CONFIG.social[el.dataset.social];
-      url ? (el.href = url) : (el.style.display = "none");
+      if (url && url.trim()) {
+        el.href = url.trim();
+        el.style.display = "";
+      } else {
+        el.style.display = "none";
+      }
     });
     $("year").textContent = new Date().getFullYear();
   }
@@ -337,6 +361,7 @@
   }
 
   async function init() {
+    await loadSettings();
     applyConfig();
     bindEvents();
     if (!sessionStorage.getItem("monarch_visited")) {

@@ -246,6 +246,82 @@
     }
   }
 
+  
+  /* ---------- Configuración de Redes Sociales y WhatsApp ---------- */
+  let siteSettings = {
+    brandName: "MONARCH STREET",
+    tagline: "More than caps",
+    whatsappNumber: "573156994134",
+    social: {
+      instagram: "https://www.instagram.com/",
+      tiktok: "https://www.tiktok.com/",
+      facebook: "https://www.facebook.com/"
+    }
+  };
+
+  async function loadSiteSettings() {
+    try {
+      const localS = JSON.parse(localStorage.getItem("monarch_custom_settings") || "null");
+      if (localS && localS.whatsappNumber) {
+        siteSettings = { ...siteSettings, ...localS, social: { ...siteSettings.social, ...(localS.social || {}) } };
+      } else {
+        const res = await fetch("../content/settings.json", { cache: "no-store" });
+        if (res.ok) {
+          const remoteS = await res.json();
+          siteSettings = { ...siteSettings, ...remoteS, social: { ...siteSettings.social, ...(remoteS.social || {}) } };
+        }
+      }
+    } catch (e) {}
+    if ($("setWhatsapp")) $("setWhatsapp").value = siteSettings.whatsappNumber || "";
+    if ($("setTagline")) $("setTagline").value = siteSettings.tagline || "More than caps";
+    if ($("setInstagram")) $("setInstagram").value = (siteSettings.social && siteSettings.social.instagram) || "";
+    if ($("setTiktok")) $("setTiktok").value = (siteSettings.social && siteSettings.social.tiktok) || "";
+    if ($("setFacebook")) $("setFacebook").value = (siteSettings.social && siteSettings.social.facebook) || "";
+  }
+
+  async function saveSiteSettings(e) {
+    if (e) e.preventDefault();
+    const btn = $("btnSaveSocial");
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Guardando...`;
+
+    try {
+      const cleanWa = ($("setWhatsapp").value || "").replace(/\D/g, "");
+      if (cleanWa.length < 10) throw new Error("Ingresa un número de WhatsApp válido con indicativo (ej. 573156994134).");
+
+      siteSettings = {
+        brandName: "MONARCH STREET",
+        tagline: ($("setTagline").value || "More than caps").trim(),
+        whatsappNumber: cleanWa,
+        social: {
+          instagram: ($("setInstagram").value || "").trim(),
+          tiktok: ($("setTiktok").value || "").trim(),
+          facebook: ($("setFacebook").value || "").trim()
+        }
+      };
+
+      localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
+
+      const token = getToken();
+      if (token) {
+        await ghPutFile(
+          "content/settings.json",
+          utf8ToBase64(JSON.stringify(siteSettings, null, 2) + "\n"),
+          "Actualizar WhatsApp y redes sociales desde panel admin",
+          token
+        );
+        showAlert('<i class="bi bi-check-circle-fill me-1"></i> <strong>¡WhatsApp y redes sociales actualizados en toda la web!</strong>', "success");
+      } else {
+        showAlert('<i class="bi bi-check-circle-fill me-1"></i> <strong>¡WhatsApp y redes sociales guardados al instante!</strong>', "success");
+      }
+    } catch (err) {
+      showAlert(`<i class="bi bi-exclamation-triangle-fill me-1"></i> ${escapeHTML(err.message)}`, "danger");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="bi bi-cloud-arrow-up-fill me-1"></i> Guardar WhatsApp y Redes Sociales`;
+    }
+  }
+
   /* ---------- Estadísticas y Panel de Visitas ---------- */
   async function loadStats() {
     try {
@@ -395,6 +471,7 @@
     });
 
     $("btnSaveAll").addEventListener("click", saveAllToGitHub);
+    if ($("socialForm")) $("socialForm").addEventListener("submit", saveSiteSettings);
 
     if ($("btnSaveToken")) $("btnSaveToken").addEventListener("click", () => {
       const v = $("ghToken").value.trim();
@@ -499,6 +576,7 @@
     $("newAdminUser").value = username;
     updateAuthBadge();
     loadCatalog();
+    loadSiteSettings();
     loadStats();
   }
 
