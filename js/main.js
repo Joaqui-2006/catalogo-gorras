@@ -100,14 +100,9 @@
   async function loadSettings() {
     let s = null;
     try {
-      s = JSON.parse(localStorage.getItem("monarch_custom_settings") || "null");
+      const res = await fetch("content/settings.json", { cache: "no-cache" });
+      if (res.ok) s = await res.json();
     } catch (e) {}
-    if (!s) {
-      try {
-        const res = await fetch("content/settings.json", { cache: "no-cache" });
-        if (res.ok) s = await res.json();
-      } catch (e) {}
-    }
     if (s && typeof s === "object") {
       if (s.tagline) CONFIG.tagline = String(s.tagline);
       const wa = String(s.whatsappNumber || "").replace(/\D/g, "");
@@ -212,19 +207,6 @@
   }
 
   async function loadProducts() {
-    try {
-      const localOverride = JSON.parse(localStorage.getItem("monarch_custom_products") || "null");
-      if (Array.isArray(localOverride)) {
-        PRODUCTS = localOverride.filter((p) => p && p.name).map((p) => ({
-          name: String(p.name).trim(),
-          price: Number(p.price) || 0,
-          category: String(p.category || "General"),
-          description: String(p.description || ""),
-          image: String(p.image || ""),
-        }));
-        return;
-      }
-    } catch (e) {}
     try {
       const res = await fetch("content/products.json", { cache: "no-cache" });
       if (!res.ok) throw new Error(res.status);
@@ -407,6 +389,8 @@
 
   /* ---------- Inicio ---------- */
   async function init() {
+    // Copias locales antiguas del panel: ya no se usan y podían ocultar el catálogo real.
+    try { localStorage.removeItem("monarch_custom_products"); localStorage.removeItem("monarch_custom_settings"); } catch (e) {}
     renderSkeleton();
     bindEvents();
     observeReveals(document);
