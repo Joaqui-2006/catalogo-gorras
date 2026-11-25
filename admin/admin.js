@@ -23,6 +23,50 @@
   const escapeHTML = (s) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  
+  /* ---------- Modal de confirmación elegante Monarch Street ---------- */
+  let bsConfirmModal = null;
+  function askConfirm({ title = "¿Estás seguro?", text = "", confirmText = "Sí, eliminar", previewImg = null }) {
+    return new Promise((resolve) => {
+      const modalEl = $("confirmModal");
+      if (!modalEl) return resolve(false);
+      $("confirmModalTitle").textContent = title;
+      $("confirmModalText").innerHTML = text;
+      $("confirmModalOk").innerHTML = `<i class="bi bi-trash3-fill me-1"></i> ${escapeHTML(confirmText)}`;
+
+      const prevBox = $("confirmModalPreview");
+      if (previewImg) {
+        prevBox.innerHTML = `<img src="${escapeHTML(previewImg)}" alt="" class="confirm-preview-img" onerror="this.style.display='none'">`;
+        prevBox.classList.remove("d-none");
+      } else {
+        prevBox.innerHTML = "";
+        prevBox.classList.add("d-none");
+      }
+
+      bsConfirmModal = bsConfirmModal || new bootstrap.Modal(modalEl);
+      let decided = false;
+
+      const onOk = () => {
+        decided = true;
+        cleanup();
+        bsConfirmModal.hide();
+        resolve(true);
+      };
+      const onHidden = () => {
+        cleanup();
+        if (!decided) resolve(false);
+      };
+      function cleanup() {
+        $("confirmModalOk").removeEventListener("click", onOk);
+        modalEl.removeEventListener("hidden.bs.modal", onHidden);
+      }
+
+      $("confirmModalOk").addEventListener("click", onOk);
+      modalEl.addEventListener("hidden.bs.modal", onHidden);
+      bsConfirmModal.show();
+    });
+  }
+
   /* ---------- Token de GitHub ---------- */
   function getToken() {
     let t = localStorage.getItem(TOKEN_KEY) || "";
@@ -113,14 +157,19 @@
     }).join("");
   }
 
-  function removeCategoryByIndex(idx) {
+  async function removeCategoryByIndex(idx) {
     const catName = categories[idx];
     if (!catName) return;
     const inUse = products.filter((p) => p.category === catName).length;
-    const msg = inUse > 0
-      ? `¿Eliminar la categoría «${catName}» y sus ${inUse} gorra(s)?`
-      : `¿Eliminar la categoría «${catName}»?`;
-    if (!confirm(msg)) return;
+    const text = inUse > 0
+      ? `Se eliminará la categoría <strong class="text-light">«${escapeHTML(catName)}»</strong> junto con sus <strong class="text-danger">${inUse} gorra(s)</strong>.`
+      : `Se eliminará la categoría <strong class="text-light">«${escapeHTML(catName)}»</strong> de los filtros de la tienda.`;
+    const ok = await askConfirm({
+      title: "Eliminar categoría",
+      text,
+      confirmText: "Eliminar categoría"
+    });
+    if (!ok) return;
     if (inUse > 0) {
       products = products.filter((p) => p.category !== catName);
     }
@@ -579,7 +628,12 @@
     $("btnTabVisitas").addEventListener("shown.bs.tab", loadStats);
 
     $("btnResetStats").addEventListener("click", async () => {
-      if (!confirm("¿Reiniciar todos los contadores de visitas a cero?")) return;
+      const ok = await askConfirm({
+        title: "Reiniciar estadísticas",
+        text: "Todos los contadores de visitas, clics a WhatsApp y pedidos volverán a <strong class='text-light'>cero (0)</strong>.",
+        confirmText: "Sí, reiniciar todo"
+      });
+      if (!ok) return;
       const sessionToken = localStorage.getItem(SESSION_KEY) || "";
       const res = await fetch("/api/stats", {
         method: "POST",
