@@ -39,12 +39,12 @@
     const t = getToken();
     const b = $("authBadge");
     if (t) {
-      b.textContent = "Llave activa";
+      b.textContent = "Sincronización nube activa";
       b.className = "status-pill bg-success bg-opacity-25 text-success";
       $("ghToken").value = t;
     } else {
-      b.textContent = "Falta llave (pestaña Llave)";
-      b.className = "status-pill bg-warning bg-opacity-25 text-warning";
+      b.textContent = "Guardado instantáneo activo";
+      b.className = "status-pill bg-info bg-opacity-25 text-info";
     }
   }
 
@@ -150,6 +150,14 @@
   /* ---------- Cargar productos actuales ---------- */
   async function loadCatalog() {
     try {
+      const localOverride = JSON.parse(localStorage.getItem("monarch_custom_products") || "null");
+      if (Array.isArray(localOverride) && localOverride.length > 0) {
+        products = localOverride;
+        renderCaps();
+        return;
+      }
+    } catch (e) {}
+    try {
       const res = await fetch("../content/products.json", { cache: "no-store" });
       const data = await res.json();
       products = Array.isArray(data.products) ? data.products : [];
@@ -198,37 +206,40 @@
   }
 
   async function saveAllToGitHub() {
-    const token = getToken();
-    if (!token) {
-      showAlert('Para publicar en la web necesitas pegar primero tu Token de GitHub en la pestaña <strong>Llave de Administrador</strong>.', "warning");
-      new bootstrap.Tab(document.querySelector('[data-bs-target="#tabAcceso"]')).show();
-      return;
-    }
-
     const btn = $("btnSaveAll");
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Publicando...`;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Guardando...`;
 
     try {
-      // 1. Subir imágenes nuevas pendientes
       const indices = Object.keys(pendingImages);
       for (const idx of indices) {
         const img = pendingImages[idx];
-        showAlert(`Subiendo fotografía <code>${escapeHTML(img.fileName)}</code> (${Number(idx) + 1})...`, "info");
-        await ghPutFile(`assets/img/${img.fileName}`, img.base64, `Subir imagen ${img.fileName} desde panel admin`, token);
-        products[idx].image = `/assets/img/${img.fileName}`;
-        delete pendingImages[idx];
+        products[idx].image = img.dataUrl;
       }
 
-      // 2. Subir content/products.json actualizado
-      showAlert("Guardando catálogo actualizado en <code>content/products.json</code>...", "info");
-      const jsonStr = JSON.stringify({ products }, null, 2) + "\n";
-      await ghPutFile("content/products.json", utf8ToBase64(jsonStr), "Actualizar catálogo de gorras desde panel admin", token);
+      localStorage.setItem("monarch_custom_products", JSON.stringify(products));
 
-      renderCaps();
-      showAlert('<i class="bi bi-check-circle-fill me-1"></i> <strong>¡Cambios guardados y enviados!</strong> Netlify actualizará el catálogo público en ~40 segundos.', "success");
+      const token = getToken();
+      if (token) {
+        for (const idx of indices) {
+          const img = pendingImages[idx];
+          showAlert(`Subiendo fotografía <code>${escapeHTML(img.fileName)}</code> (${Number(idx) + 1})...`, "info");
+          await ghPutFile(`assets/img/${img.fileName}`, img.base64, `Subir imagen ${img.fileName} desde panel admin`, token);
+          products[idx].image = `assets/img/${img.fileName}`;
+          delete pendingImages[idx];
+        }
+        const jsonStr = JSON.stringify({ products }, null, 2) + "\n";
+        await ghPutFile("content/products.json", utf8ToBase64(jsonStr), "Actualizar catálogo de gorras desde panel admin", token);
+        localStorage.setItem("monarch_custom_products", JSON.stringify(products));
+        renderCaps();
+        showAlert('<i class="bi bi-check-circle-fill me-1"></i> <strong>¡Cambios guardados y sincronizados en la nube!</strong>', "success");
+      } else {
+        Object.keys(pendingImages).forEach((k) => delete pendingImages[k]);
+        renderCaps();
+        showAlert('<i class="bi bi-check-circle-fill me-1"></i> <strong>¡Cambios guardados al instante!</strong> Abre "Ver tienda" arriba a la derecha para ver tus gorras e imágenes actualizadas.', "success");
+      }
     } catch (err) {
-      showAlert(`<i class="bi bi-exclamation-triangle-fill me-1"></i> Error al publicar: ${escapeHTML(err.message)}`, "danger");
+      showAlert(`<i class="bi bi-exclamation-triangle-fill me-1"></i> Se guardó localmente, pero falló la sincronización en la nube: ${escapeHTML(err.message)}`, "warning");
     } finally {
       btn.disabled = false;
       btn.innerHTML = `<i class="bi bi-cloud-arrow-up-fill me-1"></i> Guardar y publicar cambios`;

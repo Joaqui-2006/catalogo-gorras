@@ -317,8 +317,15 @@
   }
 
   /* ---------- Inicio ---------- */
-  // Los productos se editan desde /admin y se guardan en content/products.json
+  // Los productos se editan desde /admin y se guardan en content/products.json (o en localStorage al instante)
   async function loadProducts() {
+    try {
+      const localOverride = JSON.parse(localStorage.getItem("monarch_custom_products") || "null");
+      if (Array.isArray(localOverride) && localOverride.length > 0) {
+        PRODUCTS = localOverride;
+        return;
+      }
+    } catch (e) {}
     try {
       const res = await fetch("content/products.json", { cache: "no-cache" });
       if (!res.ok) throw new Error(res.status);
