@@ -5,7 +5,13 @@
   const BRANCH = "main";
   const TOKEN_KEY = "monarch_gh_token";
   const SESSION_KEY = "monarch_admin_session";
-  const PLACEHOLDER = "/assets/img/placeholder.svg";
+  const PLACEHOLDER = "../assets/img/placeholder.svg";
+  const resolveAdminImg = (src) => {
+    const s = String(src || "").trim();
+    if (!s) return PLACEHOLDER;
+    if (s.startsWith("data:") || s.startsWith("http")) return s;
+    return "../" + s.replace(/^(\.\.\/|\/)+/, "");
+  };
   const CATEGORIES = ["Snapback", "Trucker", "Dad Hat", "Edición limitada"];
 
   let products = [];
@@ -91,7 +97,7 @@
     }
 
     box.innerHTML = products.map((p, i) => {
-      const previewSrc = pendingImages[i] ? pendingImages[i].dataUrl : (p.image || PLACEHOLDER);
+      const previewSrc = pendingImages[i] ? pendingImages[i].dataUrl : resolveAdminImg(p.image);
       const cats = CATEGORIES.includes(p.category) ? CATEGORIES : [...CATEGORIES, p.category];
       return `
         <div class="cap-row" data-idx="${i}">
@@ -144,7 +150,7 @@
   /* ---------- Cargar productos actuales ---------- */
   async function loadCatalog() {
     try {
-      const res = await fetch("/content/products.json", { cache: "no-store" });
+      const res = await fetch("../content/products.json", { cache: "no-store" });
       const data = await res.json();
       products = Array.isArray(data.products) ? data.products : [];
       renderCaps();
@@ -237,7 +243,7 @@
       const s = await res.json();
       renderStats(s);
     } catch (e) {
-      renderStats({ totalVisits: 0, totalWhatsappClicks: 0, totalCartAdds: 0, totalOrderSends: 0, byDate: {}, byProduct: {}, recentEvents: [] });
+      renderStats(JSON.parse(localStorage.getItem("monarch_local_stats") || "null") || { totalVisits: 0, totalWhatsappClicks: 0, totalCartAdds: 0, totalOrderSends: 0, byDate: {}, byProduct: {}, recentEvents: [] });
     }
   }
 
@@ -414,7 +420,29 @@
     });
   }
 
-  /* ---------- Autenticación con Usuario y Contraseña (/api/auth) ---------- */
+  /* ---------- Autenticación con Usuario y Contraseña (PBKDF2-SHA256 + Web Crypto) ---------- */
+  const LOCAL_CREDS_KEY = "monarch_custom_creds";
+
+  async function pbkdf2Hex(password, salt, iterations = 60000) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt: enc.encode(salt), iterations, hash: "SHA-256" },
+      keyMaterial,
+      256
+    );
+    return Array.from(new Uint8Array(bits)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function loadAuthConfig() {
+    try {
+      const custom = JSON.parse(localStorage.getItem(LOCAL_CREDS_KEY) || "null");
+      if (custom && custom.username && custom.passwordHash) return custom;
+    } catch (e) {}
+    const res = await fetch("../content/auth.json", { cache: "no-store" });
+    return res.json();
+  }
+
   function unlockAdminPanel(username) {
     $("loginScreen").classList.add("d-none");
     $("adminApp").classList.remove("d-none");
@@ -433,24 +461,17 @@
   }
 
   async function checkExistingSession() {
-    const token = localStorage.getItem(SESSION_KEY);
-    if (!token) return;
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return;
     try {
-      const res = await fetch("/api/auth", {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store"
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.authenticated) {
-          unlockAdminPanel(data.username || "admin");
-          return;
-        }
+      const sess = JSON.parse(raw);
+      const cfg = await loadAuthConfig();
+      if (sess && sess.exp > Date.now() && sess.h === cfg.passwordHash) {
+        unlockAdminPanel(cfg.username || "admin");
+        return;
       }
-      localStorage.removeItem(SESSION_KEY);
-    } catch (e) {
-      // Si no hay conexión con la función aún, permanece en la pantalla de login
-    }
+    } catch (e) {}
+    localStorage.removeItem(SESSION_KEY);
   }
 
   function bindAuthEvents() {
@@ -468,21 +489,22 @@
       btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Verificando...`;
 
       try {
-        const res = await fetch("/api/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "login",
-            username: $("loginUser").value.trim(),
-            password: $("loginPass").value
-          })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) {
-          throw new Error(data.error || "Usuario o contraseña incorrectos.");
+        const cfg = await loadAuthConfig();
+        const userIn = $("loginUser").value.trim();
+        const passIn = $("loginPass").value;
+        const hash = await pbkdf2Hex(passIn, cfg.salt, cfg.iterations || 60000);
+
+        if (userIn.toLowerCase() !== String(cfg.username).toLowerCase() || hash !== cfg.passwordHash) {
+          throw new Error("Usuario o contraseña incorrectos.");
         }
-        localStorage.setItem(SESSION_KEY, data.token);
-        unlockAdminPanel(data.username || "admin");
+
+        const sessionObj = {
+          u: cfg.username,
+          h: cfg.passwordHash,
+          exp: Date.now() + 1000 * 60 * 60 * 24 * 7
+        };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(sessionObj));
+        unlockAdminPanel(cfg.username);
       } catch (err) {
         errBox.textContent = err.message;
         errBox.classList.remove("d-none");
@@ -501,29 +523,47 @@
       const btn = $("btnChangeCreds");
       btn.disabled = true;
       try {
-        const sessionToken = localStorage.getItem(SESSION_KEY) || "";
-        const res = await fetch("/api/auth", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionToken}`
-          },
-          body: JSON.stringify({
-            action: "change_credentials",
-            newUsername: $("newAdminUser").value.trim(),
-            currentPassword: $("currentAdminPass").value,
-            newPassword: $("newAdminPass").value
-          })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) {
-          throw new Error(data.error || "No se pudieron actualizar las credenciales.");
+        const cfg = await loadAuthConfig();
+        const currentHash = await pbkdf2Hex($("currentAdminPass").value, cfg.salt, cfg.iterations || 60000);
+        if (currentHash !== cfg.passwordHash) {
+          throw new Error("La contraseña actual no es correcta.");
         }
-        localStorage.setItem(SESSION_KEY, data.token);
-        $("userBadge").innerHTML = `<i class="bi bi-person-check-fill me-1"></i>${escapeHTML(data.username)}`;
+
+        const newUsername = $("newAdminUser").value.trim();
+        const newPassword = $("newAdminPass").value;
+        if (newUsername.length < 3) throw new Error("El usuario debe tener al menos 3 caracteres.");
+        if (newPassword.length < 6) throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");
+
+        const newSalt = "monarch_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+        const newHash = await pbkdf2Hex(newPassword, newSalt, 60000);
+        const updatedCfg = {
+          username: newUsername,
+          salt: newSalt,
+          iterations: 60000,
+          passwordHash: newHash
+        };
+
+        localStorage.setItem(LOCAL_CREDS_KEY, JSON.stringify(updatedCfg));
+        localStorage.setItem(SESSION_KEY, JSON.stringify({
+          u: newUsername,
+          h: newHash,
+          exp: Date.now() + 1000 * 60 * 60 * 24 * 7
+        }));
+
+        const ghToken = getToken();
+        if (ghToken) {
+          await ghPutFile(
+            "content/auth.json",
+            utf8ToBase64(JSON.stringify(updatedCfg, null, 2) + "\n"),
+            "Actualizar credenciales cifradas de administrador",
+            ghToken
+          );
+        }
+
+        $("userBadge").innerHTML = `<i class="bi bi-person-check-fill me-1"></i>${escapeHTML(newUsername)}`;
         $("currentAdminPass").value = "";
         $("newAdminPass").value = "";
-        showAlert('<i class="bi bi-shield-check me-1"></i> <strong>¡Usuario y contraseña actualizados!</strong> Tu nueva clave ya está activa.', "success");
+        showAlert('<i class="bi bi-shield-check me-1"></i> <strong>¡Usuario y contraseña actualizados!</strong> Tu nueva clave cifrada ya está activa.', "success");
       } catch (err) {
         showAlert(`<i class="bi bi-exclamation-triangle-fill me-1"></i> ${escapeHTML(err.message)}`, "danger");
       } finally {

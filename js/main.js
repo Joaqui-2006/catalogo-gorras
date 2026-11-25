@@ -24,12 +24,36 @@
   const escapeHTML = (s) =>
     String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  // Normaliza rutas de imagen para que funcionen igual en Netlify (/) y en GitHub Pages (/catalogo-gorras/)
+  const resolveImg = (src) => String(src || PLACEHOLDER).replace(/^\/+/, "");
+
   // Minúsculas y sin tildes, para que "edicion" encuentre "Edición"
   const normalize = (s) =>
     String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  // Registro de analíticas hacia /api/stats (no bloquea la navegación)
+  // Registro de analíticas: intenta /api/stats y también guarda en localStorage para que funcione siempre
   function trackEvent(type, product = null) {
+    try {
+      const KEY = "monarch_local_stats";
+      const stats = JSON.parse(localStorage.getItem(KEY) || "null") || {
+        totalVisits: 0, totalWhatsappClicks: 0, totalCartAdds: 0, totalOrderSends: 0,
+        byDate: {}, byProduct: {}, recentEvents: []
+      };
+      const today = new Date().toISOString().slice(0, 10);
+      if (!stats.byDate[today]) stats.byDate[today] = { visits: 0, wa: 0, cart: 0 };
+      if (type === "visit") { stats.totalVisits++; stats.byDate[today].visits++; }
+      else if (type === "wa") { stats.totalWhatsappClicks++; stats.byDate[today].wa++; }
+      else if (type === "cart") { stats.totalCartAdds++; stats.byDate[today].cart++; }
+      else if (type === "order") { stats.totalOrderSends++; stats.totalWhatsappClicks++; stats.byDate[today].wa++; }
+      if (product) {
+        if (!stats.byProduct[product]) stats.byProduct[product] = { views: 0, wa: 0, cart: 0 };
+        if (type === "view") stats.byProduct[product].views++;
+        if (type === "wa") stats.byProduct[product].wa++;
+        if (type === "cart") stats.byProduct[product].cart++;
+      }
+      stats.recentEvents = [{ ts: new Date().toISOString(), type, product }, ...(stats.recentEvents || [])].slice(0, 25);
+      localStorage.setItem(KEY, JSON.stringify(stats));
+    } catch (e) {}
     try {
       fetch("/api/stats", {
         method: "POST",
@@ -37,7 +61,7 @@
         body: JSON.stringify({ type, product }),
         keepalive: true,
       }).catch(() => {});
-    } catch (e) { /* silencioso en local si no hay función */ }
+    } catch (e) {}
   }
 
   const imgFallback = (root) =>
@@ -99,7 +123,7 @@
       <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
         <article class="product-card reveal">
           <button type="button" class="product-img" data-detail="${i}" aria-label="Ver detalle de ${escapeHTML(p.name)}">
-            <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" loading="lazy" data-fallback>
+            <img src="${escapeHTML(resolveImg(p.image))}" alt="${escapeHTML(p.name)}" loading="lazy" data-fallback>
             <span class="badge-cat">${escapeHTML(p.category)}</span>
           </button>
           <div class="product-body">
@@ -144,7 +168,7 @@
     if (!p) return;
     currentIndex = i;
     const img = $("pmImg");
-    img.src = p.image;
+    img.src = resolveImg(p.image);
     img.alt = p.name;
     img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER; };
     $("pmCat").textContent = p.category;
@@ -211,7 +235,7 @@
 
     box.innerHTML = lines.map(({ p, qty }) => `
       <div class="cart-item">
-        <img src="${escapeHTML(p.image)}" alt="" data-fallback>
+        <img src="${escapeHTML(resolveImg(p.image))}" alt="" data-fallback>
         <div class="cart-item-info">
           <div class="cart-item-name">${escapeHTML(p.name)}</div>
           <div class="cart-item-price">${formatPrice(p.price)}</div>
