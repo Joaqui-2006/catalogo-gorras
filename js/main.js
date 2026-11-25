@@ -44,9 +44,8 @@
 
   function buildProductWaMessage(p) {
     const baseMsg = CONFIG.productMessage.replace("{producto}", p.name);
-    const imgUrl = publicImageUrl(p.image);
     const capUrl = publicCapLink(p.name);
-    return `${baseMsg}\n• Categoría: ${p.category}\n• Precio: ${formatPrice(p.price)}\n• Foto: ${imgUrl}\n• Ver gorra: ${capUrl}`;
+    return `${baseMsg}\nLink: ${capUrl}`;
   }
 
   // Minúsculas y sin tildes, para que "edicion" encuentre "Edición"
@@ -298,7 +297,7 @@
     $("cartTotal").textContent = formatPrice(total);
     $("cartFooter").classList.remove("d-none");
 
-    const items = lines.map(({ p, qty }) => `• ${qty} x ${p.name} (${formatPrice(p.price * qty)})\n  Foto: ${publicImageUrl(p.image)}\n  Link: ${publicCapLink(p.name)}`).join("\n\n");
+    const items = lines.map(({ p, qty }) => `• ${qty} x ${p.name} (${formatPrice(p.price * qty)})\n  Link: ${publicCapLink(p.name)}`).join("\n\n");
     const msg = `${CONFIG.orderIntro}\n\n${items}\n\nTotal: ${formatPrice(total)}\n\n${CONFIG.orderOutro}`;
     $("cartSend").href = waLink(msg);
   }
