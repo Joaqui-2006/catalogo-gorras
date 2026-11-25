@@ -26,13 +26,39 @@
   
   /* ---------- Modal de confirmación elegante Monarch Street ---------- */
   let bsConfirmModal = null;
-  function askConfirm({ title = "¿Estás seguro?", text = "", confirmText = "Sí, eliminar", previewImg = null }) {
+  function askConfirm({
+    title = "¿Estás seguro?",
+    text = "",
+    confirmText = "Sí, eliminar",
+    previewImg = null,
+    variant = "danger",
+    icon = "bi-trash3-fill",
+    onlyOk = false
+  }) {
     return new Promise((resolve) => {
       const modalEl = $("confirmModal");
       if (!modalEl) return resolve(false);
       $("confirmModalTitle").textContent = title;
       $("confirmModalText").innerHTML = text;
-      $("confirmModalOk").innerHTML = `<i class="bi bi-trash3-fill me-1"></i> ${escapeHTML(confirmText)}`;
+
+      const iconWrap = $("confirmModalIcon").parentElement;
+      iconWrap.className = "confirm-icon-wrap" + (variant !== "danger" ? ` variant-${variant}` : "");
+      $("confirmModalIcon").className = `bi ${icon}`;
+
+      const okBtn = $("confirmModalOk");
+      const cancelBtn = $("confirmModalCancel");
+      cancelBtn.classList.toggle("d-none", !!onlyOk);
+
+      if (variant === "success") {
+        okBtn.className = "btn btn-accent px-4 flex-grow-1";
+        okBtn.innerHTML = `<i class="bi bi-check2-circle me-1"></i> ${escapeHTML(confirmText)}`;
+      } else if (variant === "warning") {
+        okBtn.className = "btn btn-accent px-4 flex-grow-1";
+        okBtn.innerHTML = `<i class="bi bi-check2 me-1"></i> ${escapeHTML(confirmText)}`;
+      } else {
+        okBtn.className = "btn btn-danger-glow px-4 flex-grow-1";
+        okBtn.innerHTML = `<i class="bi bi-trash3-fill me-1"></i> ${escapeHTML(confirmText)}`;
+      }
 
       const prevBox = $("confirmModalPreview");
       if (previewImg) {
@@ -57,11 +83,11 @@
         if (!decided) resolve(false);
       };
       function cleanup() {
-        $("confirmModalOk").removeEventListener("click", onOk);
+        okBtn.removeEventListener("click", onOk);
         modalEl.removeEventListener("hidden.bs.modal", onHidden);
       }
 
-      $("confirmModalOk").addEventListener("click", onOk);
+      okBtn.addEventListener("click", onOk);
       modalEl.addEventListener("hidden.bs.modal", onHidden);
       bsConfirmModal.show();
     });
@@ -576,19 +602,55 @@
 
     
     if ($("btnAddCategory")) {
-      $("btnAddCategory").addEventListener("click", () => {
+      const handleAddCategory = () => {
         const inp = $("newCategoryInput");
         const val = (inp.value || "").trim();
-        if (!val) return;
-        if (!categories.some((c) => c.toLowerCase() === val.toLowerCase())) {
-          categories.push(val);
-          siteSettings.categories = categories;
-          localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
-          renderCaps();
-          showAlert(`Categoría / catálogo <strong>«${escapeHTML(val)}»</strong> agregado. Pulsa <strong>Guardar y publicar cambios</strong> para publicarlo.`, "info");
+        if (!val) {
+          askConfirm({
+            title: "Escribe un nombre",
+            text: "Por favor escribe el nombre de la nueva categoría antes de agregarla (por ejemplo: <strong class='text-light'>Beanie</strong> o <strong class='text-light'>Gorra Plana</strong>).",
+            confirmText: "Entendido",
+            variant: "warning",
+            icon: "bi-exclamation-circle-fill",
+            onlyOk: true
+          });
+          return;
         }
+        if (categories.some((c) => c.toLowerCase() === val.toLowerCase())) {
+          askConfirm({
+            title: "Categoría ya existente",
+            text: `La categoría <strong class="text-light">«${escapeHTML(val)}»</strong> ya existe en tu catálogo.`,
+            confirmText: "Entendido",
+            variant: "warning",
+            icon: "bi-info-circle-fill",
+            onlyOk: true
+          });
+          return;
+        }
+        categories.push(val);
+        siteSettings.categories = categories;
+        localStorage.setItem("monarch_custom_settings", JSON.stringify(siteSettings));
+        renderCaps();
         inp.value = "";
-      });
+        showAlert(`Categoría <strong>«${escapeHTML(val)}»</strong> agregada. Pulsa <strong>Guardar y publicar cambios</strong> para publicarla.`, "success");
+        askConfirm({
+          title: "¡Categoría agregada!",
+          text: `Se agregó la categoría <strong class="text-light">«${escapeHTML(val)}»</strong> al catálogo. Recuerda pulsar <strong class="text-info">Guardar y publicar cambios</strong> para que aparezca en la tienda.`,
+          confirmText: "Perfecto",
+          variant: "success",
+          icon: "bi-tags-fill",
+          onlyOk: true
+        });
+      };
+      $("btnAddCategory").addEventListener("click", handleAddCategory);
+      if ($("newCategoryInput")) {
+        $("newCategoryInput").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleAddCategory();
+          }
+        });
+      }
     }
 
     if ($("categoriesPills")) {
