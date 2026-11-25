@@ -41,7 +41,7 @@
     if (t) {
       b.textContent = "Sincronización nube activa";
       b.className = "status-pill bg-success bg-opacity-25 text-success";
-      $("ghToken").value = t;
+      if ($("ghToken")) $("ghToken").value = t;
     } else {
       b.textContent = "Guardado instantáneo activo";
       b.className = "status-pill bg-info bg-opacity-25 text-info";
@@ -396,7 +396,7 @@
 
     $("btnSaveAll").addEventListener("click", saveAllToGitHub);
 
-    $("btnSaveToken").addEventListener("click", () => {
+    if ($("btnSaveToken")) $("btnSaveToken").addEventListener("click", () => {
       const v = $("ghToken").value.trim();
       if (v) localStorage.setItem(TOKEN_KEY, v);
       else localStorage.removeItem(TOKEN_KEY);
@@ -404,7 +404,7 @@
       showAlert("Llave de administrador actualizada en este navegador.", "success");
     });
 
-    $("btnToggleToken").addEventListener("click", () => {
+    if ($("btnToggleToken")) $("btnToggleToken").addEventListener("click", () => {
       const inp = $("ghToken");
       inp.type = inp.type === "password" ? "text" : "password";
     });

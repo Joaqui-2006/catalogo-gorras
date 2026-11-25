@@ -254,46 +254,26 @@
 
       <!-- ================= TAB 3: SEGURIDAD Y CUENTA ================= -->
       <div class="tab-pane fade" id="tabAcceso" role="tabpanel">
-        <div class="row g-4">
-          <div class="col-lg-6">
-            <div class="panel-card">
-              <h2 class="h4 mb-2"><i class="bi bi-person-lock me-1 text-primary"></i> Cambiar usuario y contraseña</h2>
-              <p class="text-secondary small">Actualiza el usuario y la contraseña con los que entras a este panel de administración. La contraseña se guarda cifrada (PBKDF2-SHA512) en el servidor.</p>
-              <form id="changeCredsForm">
-                <div class="mb-3">
-                  <label for="newAdminUser" class="form-label small">Nuevo usuario</label>
-                  <input id="newAdminUser" type="text" class="form-control" required minlength="3">
-                </div>
-                <div class="mb-3">
-                  <label for="currentAdminPass" class="form-label small">Contraseña actual</label>
-                  <input id="currentAdminPass" type="password" class="form-control" placeholder="Tu contraseña actual" required>
-                </div>
-                <div class="mb-3">
-                  <label for="newAdminPass" class="form-label small">Nueva contraseña (mínimo 6 caracteres)</label>
-                  <input id="newAdminPass" type="password" class="form-control" placeholder="Nueva contraseña segura" required minlength="6">
-                </div>
-                <button id="btnChangeCreds" type="submit" class="btn btn-accent px-4">
-                  <i class="bi bi-check2-circle me-1"></i> Actualizar usuario y contraseña
-                </button>
-              </form>
+        <div class="panel-card" style="max-width:560px">
+          <h2 class="h4 mb-2"><i class="bi bi-person-lock me-1 text-primary"></i> Cambiar usuario y contraseña</h2>
+          <p class="text-secondary small">Actualiza el usuario y la contraseña con los que entras a este panel de administración. Tu inicio de sesión desbloquea automáticamente la publicación en la nube para toda la web.</p>
+          <form id="changeCredsForm">
+            <div class="mb-3">
+              <label for="newAdminUser" class="form-label small">Nuevo usuario</label>
+              <input id="newAdminUser" type="text" class="form-control" required minlength="3">
             </div>
-          </div>
-
-          <div class="col-lg-6">
-            <div class="panel-card">
-              <h2 class="h4 mb-2"><i class="bi bi-key-fill me-1 text-primary"></i> Llave de publicación (Token de GitHub)</h2>
-              <p class="text-secondary small">Para que cuando subas fotos o edites gorras los cambios queden publicados en toda la web (para todos los clientes), este panel usa tu token personal de GitHub del repositorio <code>Joaqui-2006/catalogo-gorras</code>. Se guarda únicamente en este navegador.</p>
-              <div class="mb-3">
-                <label for="ghToken" class="form-label small">Token personal de GitHub (<code>github_pat_...</code>)</label>
-                <div class="input-group">
-                  <input id="ghToken" type="password" class="form-control" placeholder="github_pat_..." autocomplete="off">
-                  <button id="btnToggleToken" class="btn btn-outline-secondary" type="button"><i class="bi bi-eye"></i></button>
-                  <button id="btnSaveToken" class="btn btn-accent px-4" type="button">Guardar llave</button>
-                </div>
-              </div>
-              <p class="small text-secondary mb-0">¿También quieres usar Sveltia CMS clásico? <a href="sveltia.html" class="text-info">Abrir Sveltia CMS</a>.</p>
+            <div class="mb-3">
+              <label for="currentAdminPass" class="form-label small">Contraseña actual</label>
+              <input id="currentAdminPass" type="password" class="form-control" placeholder="Tu contraseña actual" required>
             </div>
-          </div>
+            <div class="mb-3">
+              <label for="newAdminPass" class="form-label small">Nueva contraseña (mínimo 6 caracteres)</label>
+              <input id="newAdminPass" type="password" class="form-control" placeholder="Nueva contraseña segura" required minlength="6">
+            </div>
+            <button id="btnChangeCreds" type="submit" class="btn btn-accent px-4">
+              <i class="bi bi-check2-circle me-1"></i> Actualizar usuario y contraseña
+            </button>
+          </form>
         </div>
       </div>
 
